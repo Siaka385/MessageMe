@@ -1,6 +1,4 @@
-
-
-export function Authentication(){
+export function Authentication() {
     return `
     <div class="auth-container">
         <div class="logo">
@@ -9,6 +7,10 @@ export function Authentication(){
         </div>
 
         <div class="form-container">
+            <div class="demo-info">
+                <p><strong>Demo Login:</strong> Use <code>admin</code> / <code>1234</code></p>
+            </div>
+
             <!-- Sign In Form -->
             <form id="signin-form" class="form active">
                 <div class="form-group">
@@ -61,14 +63,6 @@ export function Authentication(){
         <div class="toggle-container">
             <span class="toggle-text" id="toggle-text">Don't have an account? </span>
             <a href="#" class="toggle-link" id="toggle-link">Sign Up</a>
-        </div>
-
-        <div class="social-login">
-            <div class="social-divider">or continue with</div>
-            <div class="social-buttons">
-                <a href="#" class="social-btn">Google</a>
-                <a href="#" class="social-btn">Facebook</a>
-            </div>
         </div>
     </div>
     `;

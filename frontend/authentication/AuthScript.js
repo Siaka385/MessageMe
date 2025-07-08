@@ -1,3 +1,4 @@
+//import { authService } from './AuthService.js';
 
 class AuthManager {
     constructor() {
@@ -91,50 +92,63 @@ class AuthManager {
         return true;
     }
 
-    handleSignIn() {
+    async handleSignIn() {
         const email = document.getElementById('signin-email').value.trim();
         const password = document.getElementById('signin-password').value;
 
         if (!this.validateForm('signin')) return;
 
-        // Simulate API call
         this.showLoading(true);
 
-        setTimeout(() => {
+        try {
+            const { authService } = await import('./AuthService.js');
+            const result = await authService.signIn(email, password);
+
             this.showLoading(false);
 
-            // Simulate successful sign in
-            if (email && password) {
+            if (result.success) {
                 this.showSuccess('signin-success', 'Welcome back! Redirecting...');
                 setTimeout(() => {
-                    // Redirect to chat application
-                    console.log('Redirecting to chat...');
-                }, 2000);
+                    // Reload page to trigger main app load
+                    window.location.reload();
+                }, 1500);
+            } else {
+                this.showError(document.getElementById('signin-email-error'), result.message);
             }
-        }, 1500);
+        } catch (error) {
+            this.showLoading(false);
+            console.log(error)
+            this.showError(document.getElementById('signin-email-error'), 'An unexpected error occurred');
+        }
     }
 
-    handleSignUp() {
+    async handleSignUp() {
         if (!this.validateForm('signup')) return;
 
         const name = document.getElementById('signup-name').value.trim();
         const email = document.getElementById('signup-email').value.trim();
         const password = document.getElementById('signup-password').value;
 
-        // Simulate API call
         this.showLoading(true);
 
-        setTimeout(() => {
+        try {
+            const { authService } = await import('./AuthService.js');
+            const result = await authService.signUp(name, email, password);
+
             this.showLoading(false);
 
-            // Simulate successful sign up
-            if (name && email && password) {
-                this.showSuccess('signup-success', 'Account created successfully! Please check your email.');
+            if (result.success) {
+                this.showSuccess('signup-success', 'Account created successfully! Redirecting to sign in...');
                 setTimeout(() => {
                     this.toggleForm();
                 }, 2000);
+            } else {
+                this.showError(document.getElementById('signup-email-error'), result.message);
             }
-        }, 1500);
+        } catch (error) {
+            this.showLoading(false);
+            this.showError(document.getElementById('signup-email-error'), 'An unexpected error occurred');
+        }
     }
 
     validateForm(type) {
@@ -172,11 +186,38 @@ class AuthManager {
         });
     }
 
+    async handleSocialLogin(provider) {
+        try {
+            if (provider.toLowerCase() === 'google') {
+                const { authService } = await import('./AuthService.js');
+                await authService.signInWithGoogle();
+            } else if (provider.toLowerCase() === 'facebook') {
+                const { authService } = await import('./AuthService.js');
+                await authService.signInWithGoogle();
+            }
+        } catch (error) {
+            console.error(`${provider} login error:`, error);
+            this.showError(
+                document.querySelector('.error-message'),
+                `${provider} login failed. Please try again.`
+            );
+        }
+    }
+
     showLoading(show) {
         const submitBtns = document.querySelectorAll('.submit-btn');
         submitBtns.forEach(btn => {
             btn.disabled = show;
-            btn.textContent = show ? 'Please wait...' : (this.isSignIn ? 'Sign In' : 'Sign Up');
+            if (show) {
+                btn.textContent = 'Please wait...';
+            } else {
+                // Determine button text based on current form
+                if (btn.closest('#signin-form')) {
+                    btn.textContent = 'Sign In';
+                } else if (btn.closest('#signup-form')) {
+                    btn.textContent = 'Sign Up';
+                }
+            }
         });
     }
 
@@ -189,6 +230,5 @@ class AuthManager {
 }
 
 // Initialize the auth manager when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
     new AuthManager();
-});
+
