@@ -135,31 +135,6 @@ app.post('/api/auth/signin', async (req, res) => {
             });
         }
 
-        // Check for admin credentials (dummy login)
-        if (email === 'admin' && password === '1234') {
-            const token = jwt.sign(
-                {
-                    userId: 0,
-                    email: 'admin',
-                    username: 'Admin User',
-                    role: 'admin'
-                },
-                JWT_SECRET,
-                { expiresIn: '24h' }
-            );
-
-            return res.json({
-                success: true,
-                message: 'Welcome Admin!',
-                token: token,
-                user: {
-                    id: 0,
-                    name: 'Admin User',
-                    email: 'admin',
-                    role: 'admin'
-                }
-            });
-        }
 
         // Check if user exists in database
         const user = getUserByEmail(db, email);
@@ -249,7 +224,6 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
 
 // Logout endpoint
 app.post('/api/auth/signout', (req, res) => {
-    // In a real application, you might want to blacklist the token
     res.json({
         success: true,
         message: 'Logged out successfully'
@@ -301,7 +275,7 @@ app.post('/api/messages/send', authenticateToken, (req, res) => {
             });
         }
 
-        // Check if receiver exists (skip for admin user)
+        // Check if receiver exists 
         if (receiverId !== 0) {
             const receiver = getUserById(db, receiverId);
             if (!receiver) {
