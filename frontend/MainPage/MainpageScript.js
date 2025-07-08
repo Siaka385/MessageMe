@@ -1,13 +1,23 @@
+
+
 class MessageMeChat {
     constructor() {
         this.currentUser = null;
+        this.selectedUser = null;
         this.users = [];
         this.messages = {};
         this.isTyping = false;
+        this.typingTimeout = null;
 
         this.initializeApp();
-        this.generateMockUsers();
+        this.loadUsers();
+        this.loadConversations();
         this.attachEventListeners();
+
+        // Initialize mock data for testing
+        import('./MessageService.js').then(({ messageService }) => {
+            messageService.initializeMockData();
+        });
     }
 
     initializeApp() {
@@ -41,88 +51,81 @@ class MessageMeChat {
         }
     }
 
-    generateMockUsers() {
-        this.users = [
-            {
-                id: 1,
-                name: "Alice Johnson",
-                avatar: "AJ",
-                status: "online",
-                lastMessage: "Hey! How are you doing?",
-                lastMessageTime: "2 min ago",
-                unreadCount: 3
-            },
-            {
-                id: 2,
-                name: "Bob Smith",
-                avatar: "BS",
-                status: "offline",
-                lastMessage: "Thanks for the help!",
-                lastMessageTime: "1 hour ago",
-                unreadCount: 0
-            },
-            {
-                id: 3,
-                name: "Carol Davis",
-                avatar: "CD",
-                status: "online",
-                lastMessage: "See you tomorrow 👋",
-                lastMessageTime: "3 hours ago",
-                unreadCount: 1
-            },
-            {
-                id: 4,
-                name: "David Wilson",
-                avatar: "DW",
-                status: "online",
-                lastMessage: "That sounds great!",
-                lastMessageTime: "1 day ago",
-                unreadCount: 0
-            },
-            {
-                id: 5,
-                name: "Emma Brown",
-                avatar: "EB",
-                status: "offline",
-                lastMessage: "Let's catch up soon",
-                lastMessageTime: "2 days ago",
-                unreadCount: 2
-            },
-            {
-                id: 6,
-                name: "Frank Miller",
-                avatar: "FM",
-                status: "online",
-                lastMessage: "Perfect! 🎉",
-                lastMessageTime: "1 week ago",
-                unreadCount: 0
+    async loadUsers() {
+        try {
+            const response = await import('./MessageService.js').then(async({ messageService }) => {
+                return await messageService.getUsers();
+            });
+            if (response.success) {
+                this.users = response.data.map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    avatar: user.avatar,
+                    status: user.isOnline ? 'online' : 'offline',
+                    lastMessage: '',
+                    lastMessageTime: '',
+                    unreadCount: 0
+                }));
+                this.renderUsers();
+            } else {
+                console.error('Failed to load users:', response.message);
             }
-        ];
-
-        this.generateMockMessages();
-        this.renderUsers();
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
     }
 
-    generateMockMessages() {
-        this.messages = {
-            1: [
-                { id: 1, text: "Hey! How are you doing?", sent: false, time: "10:30 AM" },
-                { id: 2, text: "I'm doing great, thanks for asking!", sent: true, time: "10:32 AM" },
-                { id: 3, text: "What about you?", sent: true, time: "10:32 AM" },
-                { id: 4, text: "I'm good too! Just working on some projects", sent: false, time: "10:35 AM" },
-                { id: 5, text: "That's awesome! What kind of projects?", sent: true, time: "10:36 AM" }
-            ],
-            2: [
-                { id: 1, text: "Thanks for the help with the presentation!", sent: false, time: "9:15 AM" },
-                { id: 2, text: "No problem! Happy to help", sent: true, time: "9:20 AM" },
-                { id: 3, text: "It went really well", sent: false, time: "2:30 PM" }
-            ],
-            3: [
-                { id: 1, text: "Are we still on for tomorrow?", sent: true, time: "8:00 AM" },
-                { id: 2, text: "Yes! Looking forward to it", sent: false, time: "8:05 AM" },
-                { id: 3, text: "See you tomorrow 👋", sent: false, time: "8:06 AM" }
-            ]
-        };
+    async loadConversations() {
+        try {
+            const response = await messageService.getConversations();
+            if (response.success) {
+                // Update users with conversation data
+                response.data.forEach(conversation => {
+                    const userIndex = this.users.findIndex(u => u.id === conversation.userId);
+                    if (userIndex !== -1) {
+                        this.users[userIndex].lastMessage = conversation.lastMessage;
+                        this.users[userIndex].lastMessageTime = this.formatTime(conversation.lastMessageTime);
+                        this.users[userIndex].unreadCount = conversation.unreadCount;
+                        this.users[userIndex].status = conversation.isOnline ? 'online' : 'offline';
+                    }
+                });
+                this.renderUsers();
+            }
+        } catch (error) {
+            console.error('Error loading conversations:', error);
+        }
+    }
+
+    async loadMessages(userId) {
+        try {
+            const response = await messageService.getMessages(userId);
+            if (response.success) {
+                const currentUser = JSON.parse(localStorage.getItem('userData') || '{}');
+                const currentUserId = currentUser.id || 0;
+
+                this.messages[userId] = response.data.messages.map(msg => ({
+                    id: msg.id,
+                    text: msg.message,
+                    sent: msg.senderId === currentUserId,
+                    time: this.formatTime(msg.timestamp),
+                    timestamp: msg.timestamp
+                }));
+
+                this.renderMessages();
+
+                // Mark messages as read
+                await messageService.markAsRead(userId);
+
+                // Update unread count in user list
+                const userIndex = this.users.findIndex(u => u.id === userId);
+                if (userIndex !== -1) {
+                    this.users[userIndex].unreadCount = 0;
+                    this.renderUsers();
+                }
+            }
+        } catch (error) {
+            console.error('Error loading messages:', error);
+        }
     }
 
     renderUsers() {
@@ -156,8 +159,8 @@ class MessageMeChat {
         });
     }
 
-    selectUser(user) {
-        this.currentUser = user;
+    async selectUser(user) {
+        this.selectedUser = user;
         this.welcomeScreen.style.display = 'none';
         this.chatArea.style.display = 'flex';
 
@@ -166,12 +169,8 @@ class MessageMeChat {
         document.getElementById('chatUserName').textContent = user.name;
         document.getElementById('chatUserStatus').textContent = user.status === 'online' ? 'Online' : 'Last seen recently';
 
-        // Clear unread count
-        user.unreadCount = 0;
-
-        // Render messages
-        this.renderMessages();
-        this.renderUsers();
+        // Load messages for this user
+        await this.loadMessages(user.id);
 
         // Close sidebar on mobile
         if (window.innerWidth <= 768) {
@@ -180,9 +179,9 @@ class MessageMeChat {
     }
 
     renderMessages() {
-        if (!this.currentUser) return;
+        if (!this.selectedUser) return;
 
-        const userMessages = this.messages[this.currentUser.id] || [];
+        const userMessages = this.messages[this.selectedUser.id] || [];
         this.chatMessages.innerHTML = '';
 
         userMessages.forEach(message => {
@@ -206,39 +205,56 @@ class MessageMeChat {
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
-    sendMessage() {
-        if (!this.currentUser) return;
+    async sendMessage() {
+        if (!this.selectedUser) return;
 
         const text = this.messageInput.value.trim();
         if (!text) return;
 
-        const newMessage = {
-            id: Date.now(),
-            text: text,
-            sent: true,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-
-        // Add to messages
-        if (!this.messages[this.currentUser.id]) {
-            this.messages[this.currentUser.id] = [];
-        }
-        this.messages[this.currentUser.id].push(newMessage);
-
-        // Update user's last message
-        this.currentUser.lastMessage = text;
-        this.currentUser.lastMessageTime = 'now';
-
-        // Clear input
+        // Clear input immediately for better UX
         this.messageInput.value = '';
         this.messageInput.style.height = '45px';
 
-        // Re-render
-        this.renderMessages();
-        this.renderUsers();
+        try {
+            const response = await messageService.sendMessage(this.selectedUser.id, text, 'text');
 
-        // Simulate typing and response
-        this.simulateTyping();
+            if (response.success) {
+                // Add message to local cache
+                if (!this.messages[this.selectedUser.id]) {
+                    this.messages[this.selectedUser.id] = [];
+                }
+
+                const newMessage = {
+                    id: response.data.id,
+                    text: text,
+                    sent: true,
+                    time: this.formatTime(response.data.timestamp),
+                    timestamp: response.data.timestamp
+                };
+
+                this.messages[this.selectedUser.id].push(newMessage);
+
+                // Update user's last message in the list
+                const userIndex = this.users.findIndex(u => u.id === this.selectedUser.id);
+                if (userIndex !== -1) {
+                    this.users[userIndex].lastMessage = text;
+                    this.users[userIndex].lastMessageTime = 'now';
+                }
+
+                // Re-render
+                this.renderMessages();
+                this.renderUsers();
+
+            } else {
+                console.error('Failed to send message:', response.message);
+                // Restore the message in input if sending failed
+                this.messageInput.value = text;
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            // Restore the message in input if sending failed
+            this.messageInput.value = text;
+        }
     }
 
     simulateTyping() {
@@ -279,6 +295,26 @@ class MessageMeChat {
             this.renderMessages();
             this.renderUsers();
         }, Math.random() * 2000 + 1000);
+    }
+
+    formatTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+
+        if (diffInMinutes < 1) {
+            return 'now';
+        } else if (diffInMinutes < 60) {
+            return `${diffInMinutes} min ago`;
+        } else if (diffInMinutes < 1440) { // 24 hours
+            const hours = Math.floor(diffInMinutes / 60);
+            return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        } else if (diffInMinutes < 10080) { // 7 days
+            const days = Math.floor(diffInMinutes / 1440);
+            return `${days} day${days > 1 ? 's' : ''} ago`;
+        } else {
+            return date.toLocaleDateString();
+        }
     }
 
     attachEventListeners() {

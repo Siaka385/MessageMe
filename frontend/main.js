@@ -41,7 +41,7 @@ function initializeScript(path) {
 
     let script = document.createElement("script");
     script.setAttribute("src", `${path}`);
-    script.setAttribute("type", "text/javascript");
+    script.setAttribute("type", "module"); // Changed to module to support imports
     script.setAttribute("class", "dynamicScript");
     script.defer = true;
     document.head.appendChild(script);
