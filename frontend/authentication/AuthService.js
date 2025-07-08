@@ -1,12 +1,11 @@
 // Authentication API Service
 class AuthService {
     constructor() {
-        // You can configure your API base URL here
-        this.baseURL = 'http://localhost:3000/api/auth'; // Change this to your actual API URL
+        this.baseURL = 'http://localhost:3000/api/auth'; 
         this.headers = {
             'Content-Type': 'application/json',
         };
-        this.useMockAPI = true; // Set to false when you have a real backend
+        this.useMockAPI = false;
     }
 
     // Sign In API call
@@ -89,6 +88,8 @@ class AuthService {
             };
         }
     }
+
+
     // Sign out
     async signOut() {
         try {
@@ -115,7 +116,7 @@ class AuthService {
 
         } catch (error) {
             console.error('Sign out error:', error);
-            // Still clear local storage even if API call fails
+        
             localStorage.removeItem('userToken');
             localStorage.removeItem('userData');
 
@@ -164,113 +165,6 @@ class AuthService {
             return false;
         }
     }
-
-    // Mock API methods for testing
-    async mockSignIn(email, password) {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Mock validation
-        if (!email || !password) {
-            return {
-                success: false,
-                message: 'Email and password are required'
-            };
-        }
-
-        // Check for dummy admin credentials
-        if (email === 'admin@gmail.com' && password === '123456') {
-            const mockToken = 'admin_token_' + Date.now();
-            const mockUser = {
-                id: 1,
-                name: 'Admin User',
-                email: 'admin@gmail.com',
-                role: 'admin'
-            };
-
-            localStorage.setItem('userToken', mockToken);
-            localStorage.setItem('userData', JSON.stringify(mockUser));
-
-            return {
-                success: true,
-                data: {
-                    token: mockToken,
-                    user: mockUser
-                },
-                message: 'Welcome Admin!'
-            };
-        }
-
-        // Check for other valid credentials (for testing)
-        if (password.length < 4) {
-            return {
-                success: false,
-                message: 'Invalid credentials'
-            };
-        }
-
-        // Mock successful sign in for other users
-        const mockToken = 'mock_jwt_token_' + Date.now();
-        const mockUser = {
-            id: Date.now(),
-            name: 'John Doe',
-            email: email
-        };
-
-        localStorage.setItem('userToken', mockToken);
-        localStorage.setItem('userData', JSON.stringify(mockUser));
-
-        return {
-            success: true,
-            data: {
-                token: mockToken,
-                user: mockUser
-            },
-            message: 'Sign in successful'
-        };
-    }
-
-    async mockSignUp(name, email, password) {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1200));
-
-        // Mock validation
-        if (!name || !email || !password) {
-            return {
-                success: false,
-                message: 'All fields are required'
-            };
-        }
-
-        if (password.length < 6) {
-            return {
-                success: false,
-                message: 'Password must be at least 6 characters'
-            };
-        }
-
-        // Mock email already exists check
-        if (email === 'test@example.com') {
-            return {
-                success: false,
-                message: 'Email already exists'
-            };
-        }
-
-        // Mock successful sign up
-        return {
-            success: true,
-            data: {
-                user: {
-                    id: Date.now(),
-                    name: name,
-                    email: email
-                }
-            },
-            message: 'Account created successfully'
-        };
-    }
 }
 
-// Export singleton instance
 export const authService = new AuthService();

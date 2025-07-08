@@ -2,12 +2,11 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { initDb, InitiliazeDbTables, AddUserToTable, getUserByEmail, getUserByUsername, getUserById, getAllUsers } from "./database.js";
+import { initDb, InitiliazeDbTables, AddUserToTable, getUserByEmail, getUserByUsername, getUserById, getAllUsers, addMessage, getMessagesBetweenUsers, getConversationsForUser, markMessagesAsRead, getMessageById } from "./database.js";
 
 const app = express();
 
 // Database
-console.log('Initializing database...');
 var db = initDb();
 console.log('Database initialized successfully');
 
@@ -16,7 +15,7 @@ InitiliazeDbTables(db);
 console.log('Database tables initialized successfully');
 
 // JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'secret-jwt-key';
 
 // Helper function to hash passwords
 async function hashPassword(password) {
@@ -136,31 +135,6 @@ app.post('/api/auth/signin', async (req, res) => {
             });
         }
 
-        // Check for admin credentials (dummy login)
-        if (email === 'admin' && password === '1234') {
-            const token = jwt.sign(
-                {
-                    userId: 0,
-                    email: 'admin',
-                    username: 'Admin User',
-                    role: 'admin'
-                },
-                JWT_SECRET,
-                { expiresIn: '24h' }
-            );
-
-            return res.json({
-                success: true,
-                message: 'Welcome Admin!',
-                token: token,
-                user: {
-                    id: 0,
-                    name: 'Admin User',
-                    email: 'admin',
-                    role: 'admin'
-                }
-            });
-        }
 
         // Check if user exists in database
         const user = getUserByEmail(db, email);
@@ -250,7 +224,6 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
 
 // Logout endpoint
 app.post('/api/auth/signout', (req, res) => {
-    // In a real application, you might want to blacklist the token
     res.json({
         success: true,
         message: 'Logged out successfully'
@@ -263,15 +236,193 @@ app.get('/api/users', authenticateToken, (req, res) => {
         const users = getAllUsers(db);
         res.json({
             success: true,
-            users: users.map(user => ({
+            data: users.map(user => ({
                 id: user.id,
                 name: user.username,
                 email: user.email,
+                avatar: user.username.split(' ').map(n => n[0]).join('').toUpperCase(),
+                isOnline: Math.random() > 0.5, // Random online status for demo
                 created_at: user.created_at
             }))
         });
     } catch (error) {
         console.error('Get users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
+// Send message endpoint
+app.post('/api/messages/send', authenticateToken, (req, res) => {
+    try {
+        const { receiverId, message, messageType = 'text' } = req.body;
+        const senderId = req.user.userId;
+
+        // Validation
+        if (!receiverId || !message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Receiver ID and message are required'
+            });
+        }
+
+        if (message.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Message cannot be empty'
+            });
+        }
+
+        // Check if receiver exists 
+        if (receiverId !== 0) {
+            const receiver = getUserById(db, receiverId);
+            if (!receiver) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Receiver not found'
+                });
+            }
+        }
+
+        // Add message to database
+        const result = addMessage(db, senderId, receiverId, message.trim(), messageType);
+
+        // Get the created message
+        const newMessage = getMessageById(db, result.lastInsertRowid);
+
+        console.log('Message sent:', { id: result.lastInsertRowid, from: senderId, to: receiverId });
+
+        res.status(201).json({
+            success: true,
+            data: {
+                id: newMessage.id,
+                senderId: newMessage.sender_id,
+                receiverId: newMessage.receiver_id,
+                message: newMessage.message,
+                messageType: newMessage.message_type,
+                timestamp: newMessage.created_at,
+                isRead: newMessage.is_read
+            },
+            message: 'Message sent successfully'
+        });
+
+    } catch (error) {
+        console.error('Send message error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
+// Get messages between users endpoint
+app.get('/api/messages/:userId', authenticateToken, (req, res) => {
+    try {
+        const { userId } = req.params;
+        const currentUserId = req.user.userId;
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+
+        // Validation
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID is required'
+            });
+        }
+
+        // Get messages between current user and specified user
+        const messages = getMessagesBetweenUsers(db, currentUserId, parseInt(userId), limit, offset);
+
+        // Count total messages for pagination
+        const totalMessages = getMessagesBetweenUsers(db, currentUserId, parseInt(userId), 999999, 0).length;
+
+        res.json({
+            success: true,
+            data: {
+                messages: messages.map(msg => ({
+                    id: msg.id,
+                    senderId: msg.sender_id,
+                    receiverId: msg.receiver_id,
+                    message: msg.message,
+                    messageType: msg.message_type,
+                    timestamp: msg.created_at,
+                    isRead: msg.is_read,
+                    senderName: msg.sender_name,
+                    receiverName: msg.receiver_name
+                })),
+                total: totalMessages,
+                hasMore: offset + limit < totalMessages
+            }
+        });
+
+    } catch (error) {
+        console.error('Get messages error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
+// Get conversations endpoint
+app.get('/api/conversations', authenticateToken, (req, res) => {
+    try {
+        const currentUserId = req.user.userId;
+
+        // Get conversations for current user
+        const conversations = getConversationsForUser(db, currentUserId);
+
+        res.json({
+            success: true,
+            data: conversations.map(conv => ({
+                userId: conv.other_user_id,
+                userName: conv.other_user_name,
+                userAvatar: conv.other_user_name.split(' ').map(n => n[0]).join('').toUpperCase(),
+                lastMessage: conv.last_message,
+                lastMessageTime: conv.last_message_time,
+                unreadCount: conv.unread_count,
+                isOnline: Math.random() > 0.5 // Random online status for demo
+            }))
+        });
+
+    } catch (error) {
+        console.error('Get conversations error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
+// Mark messages as read endpoint
+app.put('/api/messages/read/:userId', authenticateToken, (req, res) => {
+    try {
+        const { userId } = req.params;
+        const currentUserId = req.user.userId;
+
+        // Validation
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID is required'
+            });
+        }
+
+        // Mark messages from userId to currentUser as read
+        const result = markMessagesAsRead(db, parseInt(userId), currentUserId);
+
+        console.log('Messages marked as read:', { from: userId, to: currentUserId, count: result.changes });
+
+        res.json({
+            success: true,
+            message: `${result.changes} messages marked as read`
+        });
+
+    } catch (error) {
+        console.error('Mark as read error:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error'
@@ -293,7 +444,18 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 Backend server is running on http://localhost:${PORT}...`);
   console.log(`📊 Database connected successfully`);
-  console.log(`🔗 Test the server: curl http://localhost:${PORT}/test`);
+  console.log(`🔐 JWT Secret: ${JWT_SECRET.substring(0, 10)}...`);
+  console.log(`\n📋 Available endpoints:`);
+  console.log(`   POST /api/auth/signup - User registration`);
+  console.log(`   POST /api/auth/signin - User login`);
+  console.log(`   GET  /api/auth/verify - Token verification`);
+  console.log(`   POST /api/auth/signout - User logout`);
+  console.log(`   GET  /api/users - Get all users (protected)`);
+  console.log(`   POST /api/messages/send - Send message (protected)`);
+  console.log(`   GET  /api/messages/:userId - Get messages with user (protected)`);
+  console.log(`   GET  /api/conversations - Get conversations (protected)`);
+  console.log(`   PUT  /api/messages/read/:userId - Mark messages as read (protected)`);
+  console.log(`\n🔗 Test the server: curl http://localhost:${PORT}/test`);
 }).on('error', (err) => {
     console.error('Failed to start server:', err);
 });
