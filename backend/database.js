@@ -85,9 +85,9 @@ export function getUserById(db, id) {
     return statement.get(id);
 }
 
-export function getAllUsers(db) {
-    const statement = db.prepare('SELECT id, email, username, created_at FROM users');
-    return statement.all();
+export function getAllUsers(db, currentUserId) {
+    const statement = db.prepare('SELECT id, email, username, created_at FROM users WHERE id != ? ORDER BY created_at DESC');
+    return statement.all(currentUserId);
 }
 
 // Message-related functions
