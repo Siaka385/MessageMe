@@ -1,9 +1,9 @@
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { initDb, InitiliazeDbTables, AddUserToTable, getUserByEmail, getUserByUsername, getUserById, getAllUsers, addMessage, getMessagesBetweenUsers, getConversationsForUser, markMessagesAsRead, getMessageById } from "./database.js";
-import servefile from "./servefile.js";
+import servefile from "./serveIndex.js";
+import { generateToken, authenticateToken } from "./jwtAuth.js";
 
 const app = express();
 
@@ -15,8 +15,6 @@ console.log('Database initialized successfully');
 InitiliazeDbTables(db);
 console.log('Database tables initialized successfully');
 
-// JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || 'secret-jwt-key';
 
 // Helper function to hash passwords
 async function hashPassword(password) {
@@ -33,29 +31,6 @@ app.use(cors({
 app.use(express.json());
 
 
-// Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-        return res.status(401).json({
-            success: false,
-            message: 'Access token required'
-        });
-    }
-
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) {
-            return res.status(403).json({
-                success: false,
-                message: 'Invalid or expired token'
-            });
-        }
-        req.user = user;
-        next();
-    });
-};
 
 
 
@@ -158,15 +133,7 @@ app.post('/api/auth/signin', async (req, res) => {
         }
 
         // Generate JWT token
-        const token = jwt.sign(
-            {
-                userId: user.id,
-                email: user.email,
-                username: user.username
-            },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+        const token = generateToken({ userId: user.id });
 
         console.log('User logged in successfully:', { id: user.id, email: user.email });
 
