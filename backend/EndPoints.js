@@ -99,9 +99,8 @@ app.post('/api/auth/signin', async (req, res) => {
                 message: 'Invalid email or password'
             });
         }
-
         // Generate JWT token
-        const token = generateToken({ userId: user.id });
+        const token = generateToken(user.id);
 
         console.log('User logged in successfully:', { id: user.id, email: user.email });
 
@@ -111,6 +110,7 @@ app.post('/api/auth/signin', async (req, res) => {
             message: 'Login successful!',
             token: token,
             user: {
+                name: user.username,
                 id: user.id,
             }
         });
@@ -162,7 +162,8 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
 // Get all users endpoint (protected)
 app.get('/api/users', authenticateToken, (req, res) => {
     try {
-        const users = getAllUsers(db);
+        console.log('Authenticated user:', req.user.userId);
+        const users = getAllUsers(db,req.user.userId);
         res.json({
             success: true,
             data: users.map(user => ({
