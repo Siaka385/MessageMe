@@ -1,7 +1,11 @@
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 
+
+dotenv.config();
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET;
+
 
 
 //generate User token
