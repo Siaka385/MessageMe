@@ -30,6 +30,7 @@ class MessageMeChat {
         this.sendBtn = document.getElementById('sendBtn');
         this.searchInput = document.getElementById('searchInput');
         this.typingIndicator = document.getElementById('typingIndicator');
+        this.logoutBtn = document.getElementById('logoutBtn');
 
         // Load current user info
         this.loadCurrentUser();
@@ -44,7 +45,8 @@ class MessageMeChat {
 
             if (avatarElement && nameElement) {
                 // Generate avatar initials
-                const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                //const initials = user.name.split('').map(n => n[0]).join('').toUpperCase();
+                const initials = "ADD";
                 avatarElement.textContent = initials;
                 nameElement.textContent = user.name;
             }
@@ -77,7 +79,9 @@ class MessageMeChat {
 
     async loadConversations() {
         try {
-            const response = await messageService.getConversations();
+            const response = await import('./MessageService.js').then(async({ messageService }) => {
+                return await messageService.getConversations();
+            });
             if (response.success) {
                 // Update users with conversation data
                 response.data.forEach(conversation => {
@@ -98,7 +102,10 @@ class MessageMeChat {
 
     async loadMessages(userId) {
         try {
-            const response = await messageService.getMessages(userId);
+
+            const response = await import('./MessageService.js').then(async({ messageService }) => {
+                return await messageService.getMessages(userId);
+            });
             if (response.success) {
                 const currentUser = JSON.parse(localStorage.getItem('userData') || '{}');
                 const currentUserId = currentUser.id || 0;
@@ -205,57 +212,57 @@ class MessageMeChat {
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
-    async sendMessage() {
-        if (!this.selectedUser) return;
+    // async sendMessage() {
+    //     if (!this.selectedUser) return;
 
-        const text = this.messageInput.value.trim();
-        if (!text) return;
+    //     const text = this.messageInput.value.trim();
+    //     if (!text) return;
 
-        // Clear input immediately for better UX
-        this.messageInput.value = '';
-        this.messageInput.style.height = '45px';
+    //     // Clear input immediately for better UX
+    //     this.messageInput.value = '';
+    //     this.messageInput.style.height = '45px';
 
-        try {
-            const response = await messageService.sendMessage(this.selectedUser.id, text, 'text');
+    //     try {
+    //         const response = await messageService.sendMessage(this.selectedUser.id, text, 'text');
 
-            if (response.success) {
-                // Add message to local cache
-                if (!this.messages[this.selectedUser.id]) {
-                    this.messages[this.selectedUser.id] = [];
-                }
+    //         if (response.success) {
+    //             // Add message to local cache
+    //             if (!this.messages[this.selectedUser.id]) {
+    //                 this.messages[this.selectedUser.id] = [];
+    //             }
 
-                const newMessage = {
-                    id: response.data.id,
-                    text: text,
-                    sent: true,
-                    time: this.formatTime(response.data.timestamp),
-                    timestamp: response.data.timestamp
-                };
+    //             const newMessage = {
+    //                 id: response.data.id,
+    //                 text: text,
+    //                 sent: true,
+    //                 time: this.formatTime(response.data.timestamp),
+    //                 timestamp: response.data.timestamp
+    //             };
 
-                this.messages[this.selectedUser.id].push(newMessage);
+    //             this.messages[this.selectedUser.id].push(newMessage);
 
-                // Update user's last message in the list
-                const userIndex = this.users.findIndex(u => u.id === this.selectedUser.id);
-                if (userIndex !== -1) {
-                    this.users[userIndex].lastMessage = text;
-                    this.users[userIndex].lastMessageTime = 'now';
-                }
+    //             // Update user's last message in the list
+    //             const userIndex = this.users.findIndex(u => u.id === this.selectedUser.id);
+    //             if (userIndex !== -1) {
+    //                 this.users[userIndex].lastMessage = text;
+    //                 this.users[userIndex].lastMessageTime = 'now';
+    //             }
 
-                // Re-render
-                this.renderMessages();
-                this.renderUsers();
+    //             // Re-render
+    //             this.renderMessages();
+    //             this.renderUsers();
 
-            } else {
-                console.error('Failed to send message:', response.message);
-                // Restore the message in input if sending failed
-                this.messageInput.value = text;
-            }
-        } catch (error) {
-            console.error('Error sending message:', error);
-            // Restore the message in input if sending failed
-            this.messageInput.value = text;
-        }
-    }
+    //         } else {
+    //             console.error('Failed to send message:', response.message);
+    //             // Restore the message in input if sending failed
+    //             this.messageInput.value = text;
+    //         }
+    //     } catch (error) {
+    //         console.error('Error sending message:', error);
+    //         // Restore the message in input if sending failed
+    //         this.messageInput.value = text;
+    //     }
+    // }
 
     simulateTyping() {
         if (!this.currentUser) return;
@@ -341,6 +348,9 @@ class MessageMeChat {
         this.messageInput.addEventListener('input', () => {
             this.sendBtn.disabled = !this.messageInput.value.trim();
         });
+
+        // Logout button click
+        this.logoutBtn.addEventListener('click', logout);
 
         // Handle window resize
         window.addEventListener('resize', () => {
