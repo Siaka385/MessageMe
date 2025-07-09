@@ -44,9 +44,8 @@ class MessageMeChat {
             const nameElement = document.getElementById('currentUserName');
 
             if (avatarElement && nameElement) {
-                // Generate avatar initials
-                //const initials = user.name.split('').map(n => n[0]).join('').toUpperCase();
-                const initials = "ADD";
+                // Generate avatar initials from first letter of name
+                const initials = user.name.charAt(0).toUpperCase();
                 avatarElement.textContent = initials;
                 nameElement.textContent = user.name;
             }

@@ -9,11 +9,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 
 //generate User token
-export const generateToken = (user) => {
+export const generateToken = (userId) => {
     return jwt.sign(
-        {
-            userid:user.id
-        },JWT_SECRET,{
+        {userId},JWT_SECRET,{
             expiresIn:"24h"
         })
 }
