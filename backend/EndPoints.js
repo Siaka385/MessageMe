@@ -158,13 +158,6 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
     }
 });
 
-// Logout endpoint
-app.post('/api/auth/signout', (req, res) => {
-    res.json({
-        success: true,
-        message: 'Logged out successfully'
-    });
-});
 
 // Get all users endpoint (protected)
 app.get('/api/users', authenticateToken, (req, res) => {
