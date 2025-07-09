@@ -3,6 +3,7 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { initDb, InitiliazeDbTables, AddUserToTable, getUserByEmail, getUserByUsername, getUserById, getAllUsers, addMessage, getMessagesBetweenUsers, getConversationsForUser, markMessagesAsRead, getMessageById } from "./database.js";
+import servefile from "./servefile.js";
 
 const app = express();
 
@@ -31,10 +32,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Test route
-app.get('/test', (req, res) => {
-    res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
-});
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {
@@ -59,6 +56,12 @@ const authenticateToken = (req, res, next) => {
         next();
     });
 };
+
+
+
+
+//serrve file
+servefile(app)
 
 // User Registration Endpoint
 app.post('/api/auth/signup', async (req, res) => {
@@ -442,20 +445,10 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend server is running on http://localhost:${PORT}...`);
-  console.log(`📊 Database connected successfully`);
-  console.log(`🔐 JWT Secret: ${JWT_SECRET.substring(0, 10)}...`);
-  console.log(`\n📋 Available endpoints:`);
-  console.log(`   POST /api/auth/signup - User registration`);
-  console.log(`   POST /api/auth/signin - User login`);
-  console.log(`   GET  /api/auth/verify - Token verification`);
-  console.log(`   POST /api/auth/signout - User logout`);
-  console.log(`   GET  /api/users - Get all users (protected)`);
-  console.log(`   POST /api/messages/send - Send message (protected)`);
-  console.log(`   GET  /api/messages/:userId - Get messages with user (protected)`);
-  console.log(`   GET  /api/conversations - Get conversations (protected)`);
-  console.log(`   PUT  /api/messages/read/:userId - Mark messages as read (protected)`);
-  console.log(`\n🔗 Test the server: curl http://localhost:${PORT}/test`);
+    console.log(`🚀 Backend server is running on http://localhost:${PORT}...`);
+    console.log(`📊 Database connected successfully`);
+
+
 }).on('error', (err) => {
     console.error('Failed to start server:', err);
 });
