@@ -3,6 +3,10 @@ import cors from "cors";
 import { initDb, InitiliazeDbTables} from "./database.js";
 import servefile from "./serveIndex.js";
 import { CallEndpoint } from "./EndPoints.js";
+import dotenv from "dotenv";
+
+
+dotenv.config();
 
 
 const app = express();
