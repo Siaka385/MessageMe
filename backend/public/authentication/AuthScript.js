@@ -186,24 +186,6 @@ class AuthManager {
         });
     }
 
-    async handleSocialLogin(provider) {
-        try {
-            if (provider.toLowerCase() === 'google') {
-                const { authService } = await import('./AuthService.js');
-                await authService.signInWithGoogle();
-            } else if (provider.toLowerCase() === 'facebook') {
-                const { authService } = await import('./AuthService.js');
-                await authService.signInWithGoogle();
-            }
-        } catch (error) {
-            console.error(`${provider} login error:`, error);
-            this.showError(
-                document.querySelector('.error-message'),
-                `${provider} login failed. Please try again.`
-            );
-        }
-    }
-
     showLoading(show) {
         const submitBtns = document.querySelectorAll('.submit-btn');
         submitBtns.forEach(btn => {

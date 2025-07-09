@@ -5,14 +5,10 @@ class AuthService {
         this.headers = {
             'Content-Type': 'application/json',
         };
-        this.useMockAPI = false;
     }
 
     // Sign In API call
     async signIn(email, password) {
-        if (this.useMockAPI) {
-            return this.mockSignIn(email, password);
-        }
 
         try {
             const response = await fetch(`${this.baseURL}/signin`, {
@@ -53,9 +49,6 @@ class AuthService {
 
     // Sign Up API call
     async signUp(name, email, password) {
-        if (this.useMockAPI) {
-            return this.mockSignUp(name, email, password);
-        }
 
         try {
             const response = await fetch(`${this.baseURL}/signup`, {
