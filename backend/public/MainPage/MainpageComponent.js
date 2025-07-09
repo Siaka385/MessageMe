@@ -9,7 +9,7 @@ export function MainPageComponet() {
                     <div class="user-avatar" id="currentUserAvatar">AD</div>
                     <div class="user-name" id="currentUserName">Admin User</div>
                 </div>
-                <button class="logout-btn" onclick="logout()">Logout</button>
+                <button class="logout-btn" id="logoutBtn">Logout</button>
             </div>
 
             <div class="search-container">
