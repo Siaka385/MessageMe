@@ -72,22 +72,3 @@ node server.js
 
 The server will start on `http://localhost:3000`. You should see log messages in your terminal indicating that the server and database have been initialized.
 
-### 2. Launch the Frontend
-
-The frontend must be served from a web server to avoid CORS issues when making API calls to the backend.
-
-1.  Open the project's root folder (`MessageMe`) in VS Code.
-2.  Navigate to the `frontend` directory.
-3.
-  ```bash
-python3 -m http.server 8090
-  ```
-4.  Your browser will open the application.
-
-**Authentication Header:**
-
-For protected routes, include the JWT in the `Authorization` header:
-
-```
-Authorization: Bearer <your_jwt_token>
-```
