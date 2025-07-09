@@ -82,44 +82,6 @@ class AuthService {
         }
     }
 
-
-    // Sign out
-    async signOut() {
-        try {
-            const token = localStorage.getItem('userToken');
-
-            if (token) {
-                await fetch(`${this.baseURL}/signout`, {
-                    method: 'POST',
-                    headers: {
-                        ...this.headers,
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-            }
-
-            // Clear local storage
-            localStorage.removeItem('userToken');
-            localStorage.removeItem('userData');
-
-            return {
-                success: true,
-                message: 'Signed out successfully'
-            };
-
-        } catch (error) {
-            console.error('Sign out error:', error);
-        
-            localStorage.removeItem('userToken');
-            localStorage.removeItem('userData');
-
-            return {
-                success: true,
-                message: 'Signed out successfully'
-            };
-        }
-    }
-
     // Check if user is authenticated
     isAuthenticated() {
         const token = localStorage.getItem('userToken');
