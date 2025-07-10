@@ -44,10 +44,6 @@ class MessageService {
 
     // Get messages between current user and another user
     async getMessages(userId, limit = 50, offset = 0) {
-        if (this.useMockAPI) {
-            return this.mockGetMessages(userId, limit, offset);
-        }
-
         try {
             const response = await fetch(`${this.baseURL}/messages/${userId}?limit=${limit}&offset=${offset}`, {
                 method: 'GET',
@@ -68,8 +64,6 @@ class MessageService {
 
     // Get all conversations for current user
     async getConversations() {
-
-
         try {
             const response = await fetch(`${this.baseURL}/conversations`, {
                 method: 'GET',

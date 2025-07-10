@@ -1,10 +1,13 @@
 import { Authentication } from "./authentication/AuthComponent.js";
 import { MainPageComponet } from "./MainPage/MainpageComponent.js";
+import { connectWebSocket } from "./websocket.js";
 
 function initialize() {
+    // Connect to WebSocket server
+    connectWebSocket();
+
     var userToken = localStorage.getItem("userToken");
     var app = document.querySelector(".app");
-
     if (!userToken) {
         app.innerHTML = Authentication();
         InitializeCss("./authentication/AuthStyle.css");
