@@ -55,7 +55,7 @@ export function MainPageComponet() {
 
                 <div class="message-input-container">
                     <textarea class="message-input" id="messageInput" placeholder="Type a message..." rows="1"></textarea>
-                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+                    <button class="send-btn" id="sendBtn">➤</button>
                 </div>
             </div>
         </div>
