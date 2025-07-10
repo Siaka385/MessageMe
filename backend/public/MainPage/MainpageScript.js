@@ -14,10 +14,6 @@ class MessageMeChat {
         this.loadConversations();
         this.attachEventListeners();
 
-        // Initialize mock data for testing
-        import('./MessageService.js').then(({ messageService }) => {
-            messageService.initializeMockData();
-        });
     }
 
     initializeApp() {
@@ -120,7 +116,10 @@ class MessageMeChat {
                 this.renderMessages();
 
                 // Mark messages as read
-                await messageService.markAsRead(userId);
+                await import('./MessageService.js').then(async({ messageService }) => {
+                    await messageService.markAsRead(userId);;
+                });
+
 
                 // Update unread count in user list
                 const userIndex = this.users.findIndex(u => u.id === userId);
@@ -143,8 +142,15 @@ class MessageMeChat {
 
         filteredUsers.forEach(user => {
             const userElement = document.createElement('div');
-            userElement.className = `user-item ${this.currentUser?.id === user.id ? 'active' : ''}`;
-            userElement.onclick = () => this.selectUser(user);
+            userElement.className = "user-item";
+            // Add active class if this is the selected user
+            if (this.selectedUser && this.selectedUser.id === user.id) {
+                userElement.className += " active";
+            }
+            userElement.id = `user-${user.id}`;
+            userElement.onclick = () => {
+                this.selectUser(user);
+            };
 
             userElement.innerHTML = `
                 <div class="user-item-avatar">
@@ -166,6 +172,11 @@ class MessageMeChat {
     }
 
     async selectUser(user) {
+        // Remove active class from all users first
+        document.querySelectorAll('.user-item').forEach(item => {
+            item.classList.remove('active');
+        });
+
         this.selectedUser = user;
         this.welcomeScreen.style.display = 'none';
         this.chatArea.style.display = 'flex';
@@ -174,6 +185,12 @@ class MessageMeChat {
         document.getElementById('chatUserAvatar').textContent = user.avatar;
         document.getElementById('chatUserName').textContent = user.name;
         document.getElementById('chatUserStatus').textContent = user.status === 'online' ? 'Online' : 'Last seen recently';
+
+        // Add active class to selected user
+        const userElement = document.getElementById(`user-${user.id}`);
+        if (userElement) {
+            userElement.classList.add('active');
+        }
 
         // Load messages for this user
         await this.loadMessages(user.id);
@@ -388,3 +405,7 @@ setInterval(() => {
     });
     chatApp.renderUsers();
 }, 30000); // Every 30 seconds
+
+
+const parent = document.querySelector('.ted');
+
