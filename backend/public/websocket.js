@@ -1,5 +1,5 @@
 // WebSocket connection
-let socket = null;
+export let socket = null;
 let reconnectInterval = null;
 const reconnectDelay = 5000; // 5 seconds
 
@@ -24,13 +24,13 @@ function connectWebSocket() {
             reconnectInterval = null;
         }
 
-        // Update UI to show connected status
+        // Send test message
         socket.send(JSON.stringify({ type: 'testConnection' }));
     };
 
     socket.onmessage = function(event) {
         const message = JSON.parse(event.data);
-        //handleWebSocketMessage(message);
+        handleWebSocketMessage(message);
     };
 
     socket.onclose = function(event) {
@@ -50,31 +50,31 @@ function connectWebSocket() {
     };
 }
 
-// Handle incoming WebSocket messages
-// function handleWebSocketMessage(message) {
-//     switch (message.type) {
-//         case 'chat':
-//             // Handle chat message
-//             handleChatMessage(message);
-//             // Update notification badge if not in the current chat
-//             updateNotificationBadge();
-//             break;
-//         case 'status':
-//             // Handle status update
-//             handleStatusUpdate(message);
-//             break;
-//         case 'typing':
-//             // Handle typing indicator
-//             handleTypingStatus(message, true);
-//             break;
-//         case 'typing_stopped':
-//             // Handle typing stopped
-//             handleTypingStatus(message, false);
-//             break;
-//         default:
-//             console.log('Unknown message type:', message.type);
-//     }
-// }
+//Handle incoming WebSocket messages
+function handleWebSocketMessage(message) {
+    switch (message.type) {
+        case 'chat':
+            // Handle chat message
+            handleChatMessage(message);
+            // Update notification badge if not in the current chat
+            updateNotificationBadge();
+            break;
+        case 'status':
+            // Handle status update
+            handleStatusUpdate(message);
+            break;
+        case 'typing':
+            // Handle typing indicator
+            handleTypingStatus(message, true);
+            break;
+        case 'typing_stopped':
+            // Handle typing stopped
+            handleTypingStatus(message, false);
+            break;
+        default:
+            console.log('Unknown message type:', message.type);
+    }
+}
 
 // // Handle chat messages
 // function handleChatMessage(message) {
@@ -131,20 +131,19 @@ function connectWebSocket() {
 //     updateUnreadCountsDisplay();
 // }
 
-// // Handle status updates
-// function handleStatusUpdate(message) {
-//     // Find user in the list
-//     const userElement = document.querySelector(`#${message.sender_name}`);
-//     if (userElement) {
-//         const statusBadge = userElement.querySelector('.status-badge');
+// Handle status updates
+function handleStatusUpdate(message) {
+    // Find user in the list
+    const userElement = document.querySelector(`#user-${message.sender_id}`);
+    if (userElement) {
+        const statusBadge = userElement.querySelector('.online-indicator');
 
-//         // Update status badge
-//         if (statusBadge) {
-//             statusBadge.textContent = message.content === 'online' ? 'Online' : 'Offline';
-//             statusBadge.className = `status-badge ${message.content}`;
-//         }
-//     }
-// }
+        // Update status badge
+        if (statusBadge) {
+            statusBadge.className= `online-indicator ${message.status === 'offline' ? 'offline-indicator' : ''}`;
+        }
+    }
+}
 
 // // Update last message in user list
 // function updateLastMessage(username, content) {
@@ -157,35 +156,35 @@ function connectWebSocket() {
 //     }
 // }
 
-// // Send message via WebSocket
-// function sendWebSocketMessage(receiverName, content) {
-//     if (!socket) {
-//         console.error('WebSocket not initialized. Reconnecting...');
-//         connectWebSocket();
-//         return false;
-//     }
+// Send message via WebSocket
+function sendWebSocketMessage(Messagetype,receiverName, content) {
+    if (!socket) {
+        console.error('WebSocket not initialized. Reconnecting...');
+        connectWebSocket();
+        return false;
+    }
 
-//     if (socket.readyState !== WebSocket.OPEN) {
-//         console.error('WebSocket not connected. Current state:',
-//             socket.readyState === WebSocket.CONNECTING ? 'CONNECTING' :
-//             socket.readyState === WebSocket.CLOSING ? 'CLOSING' : 'CLOSED');
-//         return false;
-//     }
+    if (socket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket not connected. Current state:',
+            socket.readyState === WebSocket.CONNECTING ? 'CONNECTING' :
+            socket.readyState === WebSocket.CLOSING ? 'CLOSING' : 'CLOSED');
+        return false;
+    }
 
-//     const message = {
-//         type: 'chat',
-//         content: content,
-//         receiver_name: receiverName
-//     };
+    const message = {
+        type: Messagetype,
+        content: content,
+        receiver_name: receiverName
+    };
 
-//     try {
-//         socket.send(JSON.stringify(message));
-//         return true;
-//     } catch (error) {
-//         console.error('Error sending message:', error);
-//         return false;
-//     }
-// }
+    try {
+        socket.send(JSON.stringify(message));
+        return true;
+    } catch (error) {
+        console.error('Error sending message:', error);
+        return false;
+    }
+}
 
 // // Send typing status via WebSocket
 // function sendTypingStatus(receiverName, isTyping) {
@@ -362,4 +361,4 @@ function connectWebSocket() {
 // }
 
 // Export functions
-export { connectWebSocket };
+export { connectWebSocket,sendWebSocketMessage };
