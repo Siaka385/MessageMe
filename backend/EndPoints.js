@@ -129,7 +129,7 @@ app.post('/api/auth/signin', async (req, res) => {
 app.get('/api/auth/verify', authenticateToken, (req, res) => {
     try {
         const user = getUserById(db, req.user.userId);
-        if (!user && req.user.userId !== 0) { // Allow admin user (id: 0)
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
@@ -138,12 +138,7 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
 
         res.json({
             success: true,
-            user: req.user.userId === 0 ? {
-                id: 0,
-                name: 'Admin User',
-                email: 'admin',
-                role: 'admin'
-            } : {
+            user: {
                 id: user.id,
                 name: user.username,
                 email: user.email
@@ -164,6 +159,7 @@ app.get('/api/users', authenticateToken, (req, res) => {
     try {
         console.log('Authenticated user:', req.user.userId);
         const users = getAllUsers(db,req.user.userId);
+        
         res.json({
             success: true,
             data: users.map(user => ({
@@ -171,7 +167,7 @@ app.get('/api/users', authenticateToken, (req, res) => {
                 name: user.username,
                 email: user.email,
                 avatar: user.username.split(' ').map(n => n[0]).join('').toUpperCase(),
-                isOnline: Math.random() > 0.5, // Random online status for demo
+                isOnline: user.online,
                 created_at: user.created_at
             }))
         });
@@ -314,7 +310,7 @@ app.get('/api/conversations', authenticateToken, (req, res) => {
                 lastMessage: conv.last_message,
                 lastMessageTime: conv.last_message_time,
                 unreadCount: conv.unread_count,
-                isOnline: Math.random() > 0.5 // Random online status for demo
+                isOnline: conv.is_online
             }))
         });
 
