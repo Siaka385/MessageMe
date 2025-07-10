@@ -50,12 +50,12 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    if (data.type === 'login') {
-        username = data.username;
+    if (data.type === 'status') {
+        username = data.userId;
         connections[username] = { socket: ws, online: true };
         console.log(`${username} connected`);
-        UpdateUserOnlineStatus(db, username, true);
-        ws.send(JSON.stringify({ type: 'login', success: true }));
+        UpdateUserOnlineStatus(db, username, true); 
+        ws.send(JSON.stringify({ type: 'status', status: 'online' }));
     }else if (data.type === 'testConnection'){ 
          console.log('Connection Established');
          ws.send(JSON.stringify({ type: 'testConnection', success: true }));
