@@ -6,7 +6,7 @@ import fs from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function  initDb() {
+export function initDb() {
     const dbPath = path.join(__dirname, '..', 'Database', 'message.db');
     console.log('Database path:', dbPath);
 
@@ -19,18 +19,19 @@ export function  initDb() {
     return new Database(dbPath);
 }
 
-export function InitiliazeDbTables(db){
+export function InitiliazeDbTables(db) {
     db.prepare(`
         CREATE TABLE IF NOT EXISTS users (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           email TEXT UNIQUE NOT NULL,
           username TEXT UNIQUE NOT NULL,
           password_hash TEXT NOT NULL,
+          online BOOLEAN DEFAULT 0,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `).run();
 
-      db.prepare(`
+    db.prepare(`
         CREATE TABLE IF NOT EXISTS messages (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           sender_id INTEGER NOT NULL,
@@ -42,31 +43,27 @@ export function InitiliazeDbTables(db){
         )
       `).run();
 
-      // Insert admin user if it doesn't exist
-      const adminExists = db.prepare('SELECT id FROM users WHERE id = 0').get();
-      if (!adminExists) {
-          db.prepare(`
-              INSERT OR IGNORE INTO users (id, email, username, password_hash, created_at)
-              VALUES (0, 'admin', 'Admin User', 'admin_hash', datetime('now'))
-          `).run();
-          console.log('Admin user created in database');
-      }
-
 }
 
-export function AddUserToTable(db, email, username, password_hash){
- var statemnet=db.prepare(`
+export function AddUserToTable(db, email, username, password_hash) {
+    var statemnet = db.prepare(`
         INSERT INTO users (email, username, password_hash)
         VALUES (?, ?, ?)
       `);
- statemnet.run(email, username, password_hash);
+    statemnet.run(email, username, password_hash);
 }
-export function AddMessageToTable(db, user_id, message, message_type){
- var statemnet=   db.prepare(`
+
+export function AddMessageToTable(db, user_id, message, message_type) {
+    var statemnet = db.prepare(`
         INSERT INTO messages (user_id, message, message_type)
         VALUES (?, ?, ?)
       `);
- statemnet.run(user_id, message, message_type);
+    statemnet.run(user_id, message, message_type);
+}
+
+export function UpdateUserOnlineStatus(db, userId, isOnline) {
+    const statement = db.prepare('UPDATE users SET online = ? WHERE id = ?');
+    statement.run(isOnline, userId);
 }
 
 
@@ -86,7 +83,7 @@ export function getUserById(db, id) {
 }
 
 export function getAllUsers(db, currentUserId) {
-    const statement = db.prepare('SELECT id, email, username, created_at FROM users WHERE id != ? ORDER BY created_at DESC');
+    const statement = db.prepare('SELECT id, email, username, online, created_at FROM users WHERE id != ? ORDER BY created_at DESC');
     return statement.all(currentUserId);
 }
 
@@ -128,7 +125,8 @@ export function getConversationsForUser(db, userId) {
             END as other_user_name,
             m.message as last_message,
             m.created_at as last_message_time,
-            COUNT(CASE WHEN m.receiver_id = ? AND m.is_read = 0 THEN 1 END) as unread_count
+            COUNT(CASE WHEN m.receiver_id = ? AND m.is_read = 0 THEN 1 END) as unread_count,
+            u2.online as is_online
         FROM messages m
         JOIN users u1 ON m.sender_id = u1.id
         JOIN users u2 ON m.receiver_id = u2.id
