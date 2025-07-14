@@ -10,13 +10,11 @@ class MessageMeChat {
         this.typingTimeout = null;
 
         this.initializeApp();
-        this.loadUsers();
-        this.loadConversations();
         this.attachEventListeners();
 
     }
 
-    initializeApp() {
+    async initializeApp() {
         // Initialize elements
         this.usersList = document.getElementById('usersList');
         this.chatArea = document.getElementById('chatArea');
@@ -30,6 +28,17 @@ class MessageMeChat {
 
         // Load current user info
         this.loadCurrentUser();
+
+        // Load users first to ensure DOM elements exist
+        await this.loadUsers();
+        await this.loadConversations();
+
+        // THEN send WebSocket status after user elements are rendered
+        const userData = JSON.parse(localStorage.getItem('userData'));
+        if (userData && userData.id) {
+            const { sendStatusWhenReady } = await import('../websocket.js');
+            sendStatusWhenReady(userData.id);
+        }
     }
 
     loadCurrentUser() {
@@ -381,8 +390,13 @@ class MessageMeChat {
 const chatApp = new MessageMeChat();
 
 // Utility functions
-function logout() {
+async function logout() {
+
     if (confirm('Are you sure you want to logout?')) {
+
+        const {logoutUser}=await import("../websocket.js")
+        logoutUser()
+        
         // Clear session data
         localStorage.removeItem('userToken');
         localStorage.removeItem('userData');

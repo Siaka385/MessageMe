@@ -1,4 +1,4 @@
-export function MainPageComponet() {
+export function renderMainPageComponent() {
 
     return `
         <div class="chat-container">
