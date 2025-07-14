@@ -35,10 +35,6 @@ function connectWebSocket() {
 
     socket.onclose = function(event) {
         console.log('WebSocket connection closed', event);
-
-        // Update UI to show disconnected status
-        //updateConnectionStatus('disconnected');
-
         // Attempt to reconnect
         // if (!reconnectInterval) {
         //     reconnectInterval = setInterval(connectWebSocket, reconnectDelay);
@@ -60,7 +56,13 @@ function handleWebSocketMessage(message) {
             updateNotificationBadge();
             break;
         case 'status':
-            // Handle status update
+            console.log("Status confirmation received for current user")
+            // This is just a confirmation that our own status was set
+            // We don't need to update UI since we don't show ourselves in the user list
+            break;
+        case 'user_status_update':
+            console.log("Other user status update received:", message)
+            // Handle status update for OTHER users
             handleStatusUpdate(message);
             break;
         case 'typing':
@@ -70,6 +72,9 @@ function handleWebSocketMessage(message) {
         case 'typing_stopped':
             // Handle typing stopped
             handleTypingStatus(message, false);
+            break;
+        case 'testConnection':
+            console.log("connection test passed")    
             break;
         default:
             console.log('Unknown message type:', message.type);
@@ -131,17 +136,28 @@ function handleWebSocketMessage(message) {
 //     updateUnreadCountsDisplay();
 // }
 
-// Handle status updates
+// Handle status updates for OTHER users (not current user)
 function handleStatusUpdate(message) {
-    // Find user in the list
-    const userElement = document.querySelector(`#user-${message.sender_id}`);
+    console.log('Handling status update for OTHER user:', message.userId, 'status:', message.status);
+    console.log('All user items in DOM:', document.querySelectorAll(".user-item"));
+    console.log('Looking for user ID:', message.userId);
+
+    // Find user in the list (this should be another user, not current user)
+    const userElement = document.querySelector(`#user-${message.userId}`);
+    console.log('User element found:', userElement);
+
     if (userElement) {
         const statusBadge = userElement.querySelector('.online-indicator');
 
         // Update status badge
         if (statusBadge) {
-            statusBadge.className= `online-indicator ${message.status === 'offline' ? 'offline-indicator' : ''}`;
+            statusBadge.className = `online-indicator ${message.status === 'offline' ? 'offline-indicator' : ''}`;
+            console.log(`✅ Updated status for user ${message.userId} to: ${message.status}`);
+        } else {
+            console.warn('Status badge not found for user:', message.userId);
         }
+    } else {
+        console.warn(`User element #user-${message.userId} not found in DOM. This user might not be in the current user's contact list.`);
     }
 }
 
@@ -156,33 +172,97 @@ function handleStatusUpdate(message) {
 //     }
 // }
 
-// Send message via WebSocket
-function sendWebSocketMessage(Messagetype,receiverName, content) {
+// Send message via WebSocket with retry mechanism
+function sendWebSocketMessage(Messagetype, userID, receiverName, content, retryCount = 0) {
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second
+
     if (!socket) {
         console.error('WebSocket not initialized. Reconnecting...');
         connectWebSocket();
+
+        if (retryCount < maxRetries) {
+            setTimeout(() => {
+                sendWebSocketMessage(Messagetype, userID, receiverName, content, retryCount + 1);
+            }, retryDelay);
+        }
+        return false;
+    }
+
+    if (socket.readyState === WebSocket.CONNECTING) {
+        console.log('WebSocket is connecting, waiting...');
+        if (retryCount < maxRetries) {
+            setTimeout(() => {
+                sendWebSocketMessage(Messagetype, userID, receiverName, content, retryCount + 1);
+            }, retryDelay);
+        }
         return false;
     }
 
     if (socket.readyState !== WebSocket.OPEN) {
         console.error('WebSocket not connected. Current state:',
-            socket.readyState === WebSocket.CONNECTING ? 'CONNECTING' :
             socket.readyState === WebSocket.CLOSING ? 'CLOSING' : 'CLOSED');
+
+        if (retryCount < maxRetries) {
+            console.log(`Retrying connection... (${retryCount + 1}/${maxRetries})`);
+            connectWebSocket();
+            setTimeout(() => {
+                sendWebSocketMessage(Messagetype, userID, receiverName, content, retryCount + 1);
+            }, retryDelay);
+        }
         return false;
     }
 
     const message = {
         type: Messagetype,
         content: content,
+        userId: userID,
         receiver_name: receiverName
     };
 
     try {
         socket.send(JSON.stringify(message));
+        console.log(`WebSocket message sent: ${Messagetype}`);
         return true;
     } catch (error) {
         console.error('Error sending message:', error);
         return false;
+    }
+}
+
+
+//handle user logout
+function logoutUser() {
+    console.log('Logging out user...');
+
+    // Inform the server about logout
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        try {
+            socket.send(JSON.stringify({ type: "logout" }));
+            console.log('Logout message sent to server');
+        } catch (error) {
+            console.error('Error sending logout message:', error);
+        }
+
+        // Close the connection after a brief delay to ensure message is sent
+        setTimeout(() => {
+            if (socket) {
+                socket.close(1000, "User logged out");
+                socket = null; // Clear the socket reference
+                console.log('WebSocket connection closed');
+            }
+        }, 100);
+    } else {
+        // If socket is not open, just clear the reference
+        socket = null;
+        console.log('WebSocket was not connected, cleared reference');
+    }
+
+    // Clear any reconnect intervals
+    if (reconnectInterval) {
+        clearInterval(reconnectInterval);
+        reconnectInterval = null;
+        console.log('Reconnect interval cleared');
     }
 }
 
@@ -360,5 +440,29 @@ function sendWebSocketMessage(Messagetype,receiverName, content) {
 //     }
 // }
 
+// Wait for WebSocket connection to be ready
+function waitForConnection(callback, maxWait = 5000) {
+    const startTime = Date.now();
+
+    function checkConnection() {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            callback();
+        } else if (Date.now() - startTime < maxWait) {
+            setTimeout(checkConnection, 100);
+        } else {
+            console.error('WebSocket connection timeout');
+        }
+    }
+
+    checkConnection();
+}
+
+// Send status message when connection is ready
+function sendStatusWhenReady(userId) {
+    waitForConnection(() => {
+        sendWebSocketMessage("status", userId, "", "");
+    });
+}
+
 // Export functions
-export { connectWebSocket,sendWebSocketMessage };
+export { connectWebSocket, sendWebSocketMessage, logoutUser, sendStatusWhenReady };
