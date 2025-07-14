@@ -7,10 +7,6 @@ export function Authentication() {
         </div>
 
         <div class="form-container">
-            <div class="demo-info">
-                <p><strong>Demo Login:</strong> Use <code>admin</code> / <code>1234</code></p>
-            </div>
-
             <!-- Sign In Form -->
             <form id="signin-form" class="form active">
                 <div class="form-group">

@@ -108,9 +108,12 @@ class AuthManager {
 
             if (result.success) {
                 this.showSuccess('signin-success', 'Welcome back! Redirecting...');
+            
+                 const { sendWebSocketMessage } = await import("../websocket.js");
+                    sendWebSocketMessage("status",result.data.user.id,"" , "");
                 setTimeout(() => {
-                    // Reload page to trigger main app load
-                    window.location.reload();
+                   // Reload page to trigger main app load
+                   window.location.reload();
                 }, 1500);
             } else {
                 this.showError(document.getElementById('signin-email-error'), result.message);
