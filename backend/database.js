@@ -61,9 +61,10 @@ export function AddMessageToTable(db, user_id, message, message_type) {
     statemnet.run(user_id, message, message_type);
 }
 
-export function UpdateUserOnlineStatus(db, userId, isOnline) {
+export function UpdateUserOnlineStatus(db, userid, isOnline) {
+    isOnline = isOnline ? 1 :0;
     const statement = db.prepare('UPDATE users SET online = ? WHERE id = ?');
-    statement.run(isOnline, userId);
+    statement.run(isOnline, userid);
 }
 
 
