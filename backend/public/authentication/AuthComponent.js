@@ -1,4 +1,4 @@
-export function Authentication() {
+export function renderAuthenticationComponent() {
     return `
     <div class="auth-container">
         <div class="logo">
