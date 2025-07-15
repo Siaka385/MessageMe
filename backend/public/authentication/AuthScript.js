@@ -117,7 +117,7 @@ class AuthManager {
                     connectWebSocket();
 
                     // Send status message when connection is ready
-                    sendStatusWhenReady(result.data.user.id);
+                    sendStatusWhenReady("status",result.data.user.id,"","");
 
                     loadMainPage();
                 }, 1500);
