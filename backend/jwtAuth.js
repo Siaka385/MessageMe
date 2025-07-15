@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET;
+var TOKEN_EXPIRATION=process.env.TOKEN_EXPIRATION;
 
 
 
@@ -12,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 export const generateToken = (userId) => {
     return jwt.sign(
         {userId},JWT_SECRET,{
-            expiresIn:"24h"
+            expiresIn:TOKEN_EXPIRATION
         })
 }
 
