@@ -1,5 +1,3 @@
-
-
 class MessageMeChat {
     constructor() {
         this.currentUser = null;
@@ -37,8 +35,11 @@ class MessageMeChat {
         const userData = JSON.parse(localStorage.getItem('userData'));
         if (userData && userData.id) {
             const { sendStatusWhenReady } = await import('../websocket.js');
-            sendStatusWhenReady(userData.id);
+            sendStatusWhenReady("status",userData.id);
         }
+
+        // Set up WebSocket message handling
+        this.setupWebSocketHandlers();
     }
 
     loadCurrentUser() {
@@ -237,57 +238,158 @@ class MessageMeChat {
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
-    // async sendMessage() {
-    //     if (!this.selectedUser) return;
+    // Set up WebSocket message handlers
+    setupWebSocketHandlers() {
+        // Store reference to this instance for use in WebSocket callbacks
+        window.chatApp = this;
 
-    //     const text = this.messageInput.value.trim();
-    //     if (!text) return;
+        // Override the global handleChatMessage function to integrate with our chat app
+        window.handleChatMessage = (message) => {
+            this.handleIncomingMessage(message);
+        };
+    }
 
-    //     // Clear input immediately for better UX
-    //     this.messageInput.value = '';
-    //     this.messageInput.style.height = '45px';
+    // Handle incoming WebSocket messages
+    handleIncomingMessage(message) {
+        if (!this.selectedUser) return;
 
-    //     try {
-    //         const response = await messageService.sendMessage(this.selectedUser.id, text, 'text');
+        // Only process messages for the current chat
+        const isFromCurrentChat = message.senderId === this.selectedUser.id;
+        const isToCurrentUser = message.receiverId === this.currentUser?.id;
 
-    //         if (response.success) {
-    //             // Add message to local cache
-    //             if (!this.messages[this.selectedUser.id]) {
-    //                 this.messages[this.selectedUser.id] = [];
-    //             }
+        if (isFromCurrentChat && isToCurrentUser) {
+            // Add received message to local cache
+            if (!this.messages[this.selectedUser.id]) {
+                this.messages[this.selectedUser.id] = [];
+            }
 
-    //             const newMessage = {
-    //                 id: response.data.id,
-    //                 text: text,
-    //                 sent: true,
-    //                 time: this.formatTime(response.data.timestamp),
-    //                 timestamp: response.data.timestamp
-    //             };
+            const newMessage = {
+                id: message.id,
+                text: message.content,
+                sent: false,
+                time: this.formatTime(message.timestamp),
+                timestamp: message.timestamp
+            };
 
-    //             this.messages[this.selectedUser.id].push(newMessage);
+            this.messages[this.selectedUser.id].push(newMessage);
 
-    //             // Update user's last message in the list
-    //             const userIndex = this.users.findIndex(u => u.id === this.selectedUser.id);
-    //             if (userIndex !== -1) {
-    //                 this.users[userIndex].lastMessage = text;
-    //                 this.users[userIndex].lastMessageTime = 'now';
-    //             }
+            // Update user's last message in the list
+            const userIndex = this.users.findIndex(u => u.id === this.selectedUser.id);
+            if (userIndex !== -1) {
+                this.users[userIndex].lastMessage = message.content;
+                this.users[userIndex].lastMessageTime = 'now';
+            }
 
-    //             // Re-render
-    //             this.renderMessages();
-    //             this.renderUsers();
+            // Re-render
+            this.renderMessages();
+            this.renderUsers();
+        }
+    }
 
-    //         } else {
-    //             console.error('Failed to send message:', response.message);
-    //             // Restore the message in input if sending failed
-    //             this.messageInput.value = text;
-    //         }
-    //     } catch (error) {
-    //         console.error('Error sending message:', error);
-    //         // Restore the message in input if sending failed
-    //         this.messageInput.value = text;
-    //     }
-    // }
+    // Typing indicator functionality
+    handleTypingInput() {
+        if (!this.selectedUser) return;
+
+        const hasText = this.messageInput.value.trim().length > 0;
+
+        if (hasText && !this.isTyping) {
+            this.startTyping();
+        } else if (!hasText && this.isTyping) {
+            this.stopTyping();
+        }
+    }
+
+    async startTyping() {
+        if (!this.selectedUser || this.isTyping) return;
+
+        this.isTyping = true;
+
+        try {
+            const { sendTypingIndicator } = await import("../websocket.js");
+            sendTypingIndicator(this.selectedUser.id, true);
+
+            // Auto-stop typing after 3 seconds of inactivity
+            clearTimeout(this.typingTimeout);
+            this.typingTimeout = setTimeout(() => {
+                this.stopTyping();
+            }, 3000);
+
+        } catch (error) {
+            console.error('Error sending typing indicator:', error);
+        }
+    }
+
+    async stopTyping() {
+        if (!this.selectedUser || !this.isTyping) return;
+
+        this.isTyping = false;
+        clearTimeout(this.typingTimeout);
+
+        try {
+            const { sendTypingIndicator } = await import("../websocket.js");
+            sendTypingIndicator(this.selectedUser.id, false);
+        } catch (error) {
+            console.error('Error stopping typing indicator:', error);
+        }
+    }
+
+    async sendMessage() {
+        if (!this.selectedUser) return;
+
+        const text = this.messageInput.value.trim();
+        if (!text) return;
+
+        // Clear input immediately for better UX
+        this.messageInput.value = '';
+        this.messageInput.style.height = '45px';
+
+        try {
+            // Send message via WebSocket
+            const { sendChatMessage } = await import("../websocket.js");
+            const success = sendChatMessage(this.selectedUser.id, text, 'text');
+
+            if (success) {
+                // Add message to local cache immediately for better UX
+                if (!this.messages[this.selectedUser.id]) {
+                    this.messages[this.selectedUser.id] = [];
+                }
+
+                const newMessage = {
+                    id: Date.now(), // Temporary ID until server confirms
+                    text: text,
+                    sent: true,
+                    time: this.formatTime(new Date().toISOString()),
+                    timestamp: new Date().toISOString(),
+                    pending: true // Mark as pending until server confirms
+                };
+
+                this.messages[this.selectedUser.id].push(newMessage);
+
+                // Update user's last message in the list
+                const userIndex = this.users.findIndex(u => u.id === this.selectedUser.id);
+                if (userIndex !== -1) {
+                    this.users[userIndex].lastMessage = text;
+                    this.users[userIndex].lastMessageTime = 'now';
+                }
+
+                // Re-render
+                this.renderMessages();
+                this.renderUsers();
+
+                // Stop typing indicator since message was sent
+                this.stopTyping();
+
+            } else {
+                console.error('Failed to send message via WebSocket');
+                // Restore the message in input if sending failed
+                this.messageInput.value = text;
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            // Restore the message in input if sending failed
+            this.messageInput.value = text;
+        }
+    }
 
     simulateTyping() {
         if (!this.currentUser) return;
@@ -355,10 +457,13 @@ class MessageMeChat {
             this.renderUsers();
         });
 
-        // Message input auto-resize
+        // Message input auto-resize and typing indicators
         this.messageInput.addEventListener('input', () => {
             this.messageInput.style.height = '45px';
             this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
+
+            // Handle typing indicators
+            this.handleTypingInput();
         });
 
         // Send message on Enter
@@ -372,6 +477,11 @@ class MessageMeChat {
         // Update send button state
         this.messageInput.addEventListener('input', () => {
             this.sendBtn.disabled = !this.messageInput.value.trim();
+        });
+
+        // Stop typing when input loses focus
+        this.messageInput.addEventListener('blur', () => {
+            this.stopTyping();
         });
 
         // Logout button click
@@ -410,15 +520,6 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
 }
 
-// Simulate random online status changes
-setInterval(() => {
-    chatApp.users.forEach(user => {
-        if (Math.random() < 0.1) { // 10% chance to change status
-            user.status = user.status === 'online' ? 'offline' : 'online';
-        }
-    });
-    chatApp.renderUsers();
-}, 30000); // Every 30 seconds
 
 
 const parent = document.querySelector('.ted');
