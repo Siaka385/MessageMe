@@ -36,7 +36,7 @@ Follow these steps to get your development environment set up.
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/Siaka385/MessageMe.git
 cd MessageMe
 ```
 
@@ -71,4 +71,32 @@ node server.js
 ```
 
 The server will start on `http://localhost:3000`. You should see log messages in your terminal indicating that the server and database have been initialized.
+
+---
+
+## Environment Variables
+
+Before running the backend, create a `.env` file inside the `backend/` directory with the following content:
+
+```
+JWT_SECRET="your_secret_key"
+TOKEN_EXPIRATION="24h"
+```
+- `JWT_SECRET`: Secret key for signing JWT tokens (choose a strong, random value)
+- `TOKEN_EXPIRATION`: Token expiration time (e.g., `24h`)
+
+---
+
+## Accessing the App
+
+- Open `backend/public/index.html` in your browser for the frontend UI.
+- The backend API will be available at `http://localhost:3000` (or the port specified in your server config).
+
+## Project Structure
+- `backend/` - Node.js backend (API, authentication, messaging)
+- `backend/public/` - Frontend files (HTML, JS, CSS)
+- `Database/` - SQLite database file
+
+## License
+MIT
 
