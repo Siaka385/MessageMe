@@ -55,6 +55,10 @@ function handleWebSocketMessage(message) {
             // Update notification badge if not in the current chat
             updateNotificationBadge();
             break;
+        case 'message_sent':
+            // Handle message sent confirmation
+            handleMessageSentConfirmation(message);
+            break;
         case 'status':
             console.log("Status confirmation received for current user")
             // This is just a confirmation that our own status was set
@@ -74,74 +78,121 @@ function handleWebSocketMessage(message) {
             handleTypingStatus(message, false);
             break;
         case 'testConnection':
-            console.log("connection test passed")    
+            console.log("connection test passed")
             break;
         default:
             console.log('Unknown message type:', message.type);
     }
 }
 
-// // Handle chat messages
-// function handleChatMessage(message) {
-//     const queryParams = new URLSearchParams(window.location.search);
-//     const currentChat = queryParams.get("chat");
-//     const currentPath = window.location.pathname;
+// Handle chat messages
+function handleChatMessage(message) {
+    // Check if there's a global chat app instance to handle the message
+    if (window.chatApp && typeof window.chatApp.handleIncomingMessage === 'function') {
+        window.chatApp.handleIncomingMessage(message);
+        return;
+    }
 
-//     // Only process messages from the current chat
-//     if (currentPath === "/privatemessages" && (message.sender_name === currentChat || message.receiver_name === currentChat)) {
-//         // Create new message element
-//         const messageTime = new Date(message.timestamp).toLocaleTimeString([], {day:"numeric",month:"long",year:"numeric", hour: '2-digit', minute: '2-digit' });
-//         const newMessage = document.createElement('div');
+    // Fallback to basic handling if no chat app instance
+    console.log('Received chat message:', message);
 
-//         // Determine if this is a sent or received message
-//         const isSent = message.sender_name !== currentChat;
-//         newMessage.className = `message ${isSent ? 'sent' : 'received'}`;
+    // Check if we're in the main page chat interface
+    const chatMessages = document.getElementById('chatMessages');
+    const currentUser = JSON.parse(localStorage.getItem('userData'));
 
-//         newMessage.innerHTML = `
-//             <div class="message-content">
-//                 <p>${message.content}</p>
-//             </div>
-//             <div class="message-time">${messageTime}</div>
-//         `;
+    if (!chatMessages || !currentUser) {
+        console.log('Chat interface not available or user not logged in');
+        return;
+    }
 
-//         // Add to messages container
-//         const messagesContainer = document.querySelector('.messages-container');
-//         if (messagesContainer) {
-//             messagesContainer.appendChild(newMessage);
+    // Get the currently selected user from the chat interface
+    const chatUserName = document.getElementById('chatUserName');
+    const currentChatUser = chatUserName ? chatUserName.textContent : null;
 
-//             // Scroll to bottom
-//             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    // Only display message if it's from/to the currently active chat
+    const isFromCurrentChat = message.senderName === currentChatUser;
+    const isToCurrentChat = message.receiverName === currentChatUser;
+    const isFromCurrentUser = message.senderId === currentUser.id;
+    const isToCurrentUser = message.receiverId === currentUser.id;
 
-//             // If this is a received message and we're in the chat with the sender,
-//             // mark it as read
-//             if (!isSent && currentPath === "/privatemessages") {
-//                 fetch('/notifications/mark-read-for-sender', {
-//                     method: 'POST',
-//                     headers: {
-//                         'Content-Type': 'application/json'
-//                     },
-//                     body: JSON.stringify({ sender_name: message.sender_name })
-//                 });
-//             }
-//         }
-//     } else if (message.sender_name !== currentChat) {
-//         // If we're not in the chat with the sender, update the unread count
-//         // This will be handled by the updateNotificationBadge function
-//     }
+    if ((isFromCurrentChat && isToCurrentUser) || (isToCurrentChat && isFromCurrentUser)) {
+        // Create message element
+        const messageElement = createMessageElement(message, currentUser.id);
 
-//     // Update last message in user list
-//     updateLastMessage(message.sender_name, message.content);
+        // Remove typing indicator if it exists
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) {
+            typingIndicator.style.display = 'none';
+        }
 
-//     // Update unread counts for all users
-//     updateUnreadCountsDisplay();
-// }
+        // Add message to chat
+        chatMessages.appendChild(messageElement);
+
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Mark message as read if it's received
+        if (message.senderId !== currentUser.id) {
+            // You can implement mark as read functionality here
+            console.log('Message received from:', message.senderName);
+        }
+    }
+
+    // Update user list with last message (if applicable)
+    updateUserListLastMessage(message);
+}
+
+// Create message element for display
+function createMessageElement(message, currentUserId) {
+    const messageDiv = document.createElement('div');
+    const isSent = message.senderId === currentUserId;
+
+    messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+
+    const messageTime = new Date(message.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            <p>${escapeHtml(message.content)}</p>
+        </div>
+        <div class="message-time">${messageTime}</div>
+    `;
+
+    return messageDiv;
+}
+
+// Handle message sent confirmation
+function handleMessageSentConfirmation(response) {
+    if (response.success) {
+        console.log('Message sent successfully:', response.message);
+        // The message will be displayed when it comes back through the chat handler
+    } else {
+        console.error('Failed to send message:', response.error);
+        // You could show an error message to the user here
+        alert('Failed to send message: ' + response.error);
+    }
+}
+
+// Update user list with last message
+function updateUserListLastMessage(message) {
+    // This function would update the user list sidebar with the latest message
+    // Implementation depends on your user list structure
+    console.log('Updating user list with last message:', message.content);
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
 // Handle status updates for OTHER users (not current user)
 function handleStatusUpdate(message) {
-    console.log('Handling status update for OTHER user:', message.userId, 'status:', message.status);
-    console.log('All user items in DOM:', document.querySelectorAll(".user-item"));
-    console.log('Looking for user ID:', message.userId);
-
+    
     // Find user in the list (this should be another user, not current user)
     const userElement = document.querySelector(`#user-${message.userId}`);
     console.log('User element found:', userElement);
@@ -161,16 +212,7 @@ function handleStatusUpdate(message) {
     }
 }
 
-// // Update last message in user list
-// function updateLastMessage(username, content) {
-//     const userElement = document.querySelector(`#${username}`);
-//     if (userElement) {
-//         const lastMessageElement = userElement.querySelector('.last-message');
-//         if (lastMessageElement) {
-//             lastMessageElement.textContent = content;
-//         }
-//     }
-// }
+
 
 // Send message via WebSocket with retry mechanism
 function sendWebSocketMessage(Messagetype, userID, receiverName, content, retryCount = 0) {
@@ -266,179 +308,37 @@ function logoutUser() {
     }
 }
 
-// // Send typing status via WebSocket
-// function sendTypingStatus(receiverName, isTyping) {
-//     if (!socket) {
-//         console.error('WebSocket not initialized for typing status. Reconnecting...');
-//         connectWebSocket();
-//         return false;
-//     }
+// Handle typing status
+function handleTypingStatus(message, isTyping) {
+    const currentUser = JSON.parse(localStorage.getItem('userData'));
+    const chatUserName = document.getElementById('chatUserName');
+    const typingIndicator = document.getElementById('typingIndicator');
 
-//     if (socket.readyState !== WebSocket.OPEN) {
-//         console.error('WebSocket not connected for typing status. Current state:',
-//             socket.readyState === WebSocket.CONNECTING ? 'CONNECTING' :
-//             socket.readyState === WebSocket.CLOSING ? 'CLOSING' : 'CLOSED');
-//         return false;
-//     }
+    if (!currentUser || !chatUserName || !typingIndicator) {
+        return;
+    }
 
-//     const message = {
-//         type: isTyping ? 'typing' : 'typing_stopped',
-//         content: '',
-//         receiver_name: receiverName
-//     };
+    // Only show typing indicator if it's from the current chat user
+    const currentChatUser = chatUserName.textContent;
+    const isFromCurrentChatUser = message.senderName === currentChatUser;
 
-//     try {
-//         socket.send(JSON.stringify(message));
-//         return true;
-//     } catch (error) {
-//         console.error('Error sending typing status:', error);
-//         return false;
-//     }
-// }
+    if (isFromCurrentChatUser) {
+        if (isTyping) {
+            // Show typing indicator
+            typingIndicator.style.display = 'block';
 
-// // Handle typing status
-// function handleTypingStatus(message, isTyping) {
-//     const queryParams = new URLSearchParams(window.location.search);
-//     const currentChat = queryParams.get("chat");
+            // Scroll to bottom to show typing indicator
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } else {
+            // Hide typing indicator
+            typingIndicator.style.display = 'none';
+        }
+    }
+}
 
-//     // Only show typing indicator for the current chat
-//     if (message.sender_name === currentChat) {
-//         const typingIndicator = document.querySelector('.typing-indicator');
-
-//         if (isTyping) {
-//             // Show typing indicator if it doesn't exist
-//             if (!typingIndicator) {
-//                 const messagesContainer = document.querySelector('.messages-container');
-//                 const newTypingIndicator = document.createElement('div');
-//                 newTypingIndicator.className = 'typing-indicator';
-//                 newTypingIndicator.innerHTML = `
-//                     <div class="message received">
-//                         <div class="message-content typing-text">
-//                             <span class="typing-username">${message.sender_name}</span>
-//                             <span class="typing-message">&nbspis typing</span>
-//                             <span class="typing-dots">...</span>
-//                         </div>
-//                     </div>
-//                 `;
-//                 messagesContainer.appendChild(newTypingIndicator);
-
-//                 // Scroll to bottom
-//                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-//             }
-//         } else {
-//             // Remove typing indicator if it exists
-//             if (typingIndicator) {
-//                 typingIndicator.remove();
-//             }
-//         }
-//     }
-// }
-
-// // Update notification badge
-// function updateNotificationBadge() {
-//     // Fetch unread message count
-//     fetch('/notifications/count')
-//         .then(response => {
-//             if (!response.ok) {
-//                 throw new Error('Network response was not ok');
-//             }
-//             return response.json();
-//         })
-//         .then(data => {
-//             // Update badge with unread count
-//             const count = data.unread_count;
-
-//             // Update all message badges on the page
-//             const badges = document.querySelectorAll('.message-badge');
-//             badges.forEach(badge => {
-//                 badge.textContent = count;
-
-//                 // Show/hide badge based on count
-//                 if (count > 0) {
-//                     badge.style.display = 'flex';
-
-//                     // Add animation class to message icon if it's in the navbar
-//                     const messageIcon = badge.closest('.message-icon');
-//                     if (messageIcon) {
-//                         messageIcon.classList.add('has-new');
-//                     }
-//                 } else {
-//                     badge.style.display = 'none';
-
-//                     // Remove animation class from message icon
-//                     const messageIcon = badge.closest('.message-icon');
-//                     if (messageIcon) {
-//                         messageIcon.classList.remove('has-new');
-//                     }
-//                 }
-//             });
-//         })
-//         .catch(error => {
-//             console.error('Error fetching notification count:', error);
-//         });
-// }
-
-// // Mark messages as read
-// function markMessagesAsRead() {
-//     fetch('/notifications/mark-read', { method: 'POST' })
-//         .then(response => {
-//             if (!response.ok) {
-//                 throw new Error('Network response was not ok');
-//             }
-//             return response.json();
-//         })
-//         .then(() => {
-//             // Update badge to show 0 unread messages
-//             updateNotificationBadge();
-//         })
-//         .catch(error => {
-//             console.error('Error marking messages as read:', error);
-//         });
-// }
-
-// // Update unread counts display for all users
-// async function updateUnreadCountsDisplay() {
-//     // Only run this on the messages page
-//     if (window.location.pathname !== '/privatemessages') return;
-
-//     try {
-//         const response = await fetch('/notifications/count-per-user');
-//         if (!response.ok) {
-//             throw new Error('Network response was not ok');
-//         }
-
-//         const data = await response.json();
-
-//         // Create a map of username to unread count
-//         const unreadCountMap = {};
-
-//         // Check if data is an array and not null/undefined
-//         if (Array.isArray(data)) {
-//             data.forEach(item => {
-//                 if (item && item.sender_name) {
-//                     unreadCountMap[item.sender_name] = item.unread_count || 0;
-//                 }
-//             });
-//         }
-
-//         // Update unread count for each user in the list
-//         const userItems = document.querySelectorAll('.user-item');
-//         userItems.forEach(userItem => {
-//             const username = userItem.id;
-//             const unreadCount = unreadCountMap[username] || 0;
-//             const unreadCountElement = userItem.querySelector('.unread-count');
-
-//             if (unreadCount > 0) {
-//                 unreadCountElement.textContent = unreadCount;
-//                 unreadCountElement.style.display = 'flex';
-//             } else {
-//                 unreadCountElement.style.display = 'none';
-//             }
-//         });
-//     } catch (error) {
-//         console.error('Error updating unread counts:', error);
-//     }
-// }
 
 // Wait for WebSocket connection to be ready
 function waitForConnection(callback, maxWait = 5000) {
@@ -458,11 +358,80 @@ function waitForConnection(callback, maxWait = 5000) {
 }
 
 // Send status message when connection is ready
-function sendStatusWhenReady(userId) {
+function sendStatusWhenReady(type,userId,receiverName="",content="") {
     waitForConnection(() => {
-        sendWebSocketMessage("status", userId, "", "");
+        sendWebSocketMessage(type, userId, receiverName, content);
     });
 }
 
+// Send chat message via WebSocket
+function sendChatMessage(receiverId, content, messageType = 'text') {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    if (!currentUser) {
+        console.error('No current user found');
+        return false;
+    }
+
+    const message = {
+        type: 'chat',
+        receiverId: receiverId,
+        content: content,
+        messageType: messageType,
+        userId: currentUser.id,
+        senderName: currentUser.username
+    };
+
+    return sendWebSocketMessageEnhanced(message);
+}
+
+// Send typing indicator
+function sendTypingIndicator(receiverId, isTyping = true) {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    if (!currentUser) {
+        console.error('No current user found');
+        return false;
+    }
+
+    const messageType = isTyping ? 'typing' : 'typing_stopped';
+    const message = {
+        type: messageType,
+        receiverId: receiverId,
+        userId: currentUser.id,
+        senderName: currentUser.username
+    };
+
+    return sendWebSocketMessageEnhanced(message);
+}
+
+// Enhanced sendWebSocketMessage to handle new message format
+function sendWebSocketMessageEnhanced(messageData) {
+    if (!socket) {
+        console.error('WebSocket not initialized');
+        return false;
+    }
+
+    if (socket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket not connected');
+        return false;
+    }
+
+    try {
+        socket.send(JSON.stringify(messageData));
+        console.log('WebSocket message sent:', messageData.type);
+        return true;
+    } catch (error) {
+        console.error('Error sending WebSocket message:', error);
+        return false;
+    }
+}
+
 // Export functions
-export { connectWebSocket, sendWebSocketMessage, logoutUser, sendStatusWhenReady };
+export {
+    connectWebSocket,
+    sendWebSocketMessage,
+    logoutUser,
+    sendStatusWhenReady,
+    sendChatMessage,
+    sendTypingIndicator,
+    sendWebSocketMessageEnhanced
+};
