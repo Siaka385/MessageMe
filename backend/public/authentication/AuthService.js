@@ -1,7 +1,7 @@
 // Authentication API Service
 class AuthService {
     constructor() {
-        this.baseURL = 'http://localhost:3000/api/auth'; 
+        this.baseURL = 'http://localhost:3000/api/auth';
         this.headers = {
             'Content-Type': 'application/json',
         };
@@ -112,7 +112,7 @@ class AuthService {
                     'Authorization': `Bearer ${token}`
                 }
             });
-
+             
             return response.ok;
 
         } catch (error) {

@@ -1,16 +1,18 @@
 import { renderAuthenticationComponent } from "./authentication/AuthComponent.js";
 import { renderMainPageComponent } from "./MainPage/MainpageComponent.js";
 import { connectWebSocket } from "./websocket.js";
+import { authService } from "./authentication/AuthService.js";
 
-export function initializeApp() {
-    const userToken = localStorage.getItem("userToken");
-
-    if (!userToken) {
-        loadAuthenticationPage();
-    } else {
-        // Connect to WebSocket server only for authenticated users
+export async function initializeApp() {
+     var isTokenValid=await authService.verifyToken()
+    
+    if (isTokenValid) {
+         // Connect to WebSocket server only for authenticated users
         connectWebSocket();
         loadMainPage()
+    } else {
+        loadAuthenticationPage();
+       
     }
 }
 
