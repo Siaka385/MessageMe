@@ -1,4 +1,4 @@
-export function Authentication() {
+export function renderAuthenticationComponent() {
     return `
     <div class="auth-container">
         <div class="logo">
@@ -7,10 +7,6 @@ export function Authentication() {
         </div>
 
         <div class="form-container">
-            <div class="demo-info">
-                <p><strong>Demo Login:</strong> Use <code>admin</code> / <code>1234</code></p>
-            </div>
-
             <!-- Sign In Form -->
             <form id="signin-form" class="form active">
                 <div class="form-group">

@@ -1,49 +1,60 @@
-import { Authentication } from "./authentication/AuthComponent.js";
-import { MainPageComponet } from "./MainPage/MainpageComponent.js";
+import { renderAuthenticationComponent } from "./authentication/AuthComponent.js";
+import { renderMainPageComponent } from "./MainPage/MainpageComponent.js";
+import { connectWebSocket } from "./websocket.js";
+import { authService } from "./authentication/AuthService.js";
 
-function initialize() {
-    var userToken = localStorage.getItem("userToken");
-    var app = document.querySelector(".app");
-
-    if (!userToken) {
-        app.innerHTML = Authentication();
-        InitializeCss("./authentication/AuthStyle.css");
-        initializeScript("./authentication/AuthScript.js");
+export async function initializeApp() {
+     var isTokenValid=await authService.verifyToken()
+    
+    if (isTokenValid) {
+         // Connect to WebSocket server only for authenticated users
+        connectWebSocket();
+        loadMainPage()
     } else {
-        app.innerHTML = MainPageComponet();
-        InitializeCss("./MainPage/MainpageStyle.css");
-        initializeScript("./MainPage/MainpageScript.js");
+        loadAuthenticationPage();
+       
     }
 }
 
-initialize();
+initializeApp();
 
-
-function InitializeCss(path) {
-    let currentStyle = document.querySelector(".dynamicstyles");
-    if (currentStyle) {
-        document.head.removeChild(currentStyle);
-    }
-
-    let css = document.createElement("link");
-    css.setAttribute("rel", "stylesheet");
-    css.setAttribute("type", "text/css");
-    css.setAttribute("href", `${path}`);
-    css.setAttribute("class", "dynamicstyles");
-    document.head.appendChild(css);
+function loadAuthenticationPage() {
+    const app = document.querySelector(".app");
+    app.innerHTML = renderAuthenticationComponent();
+    loadCss("./authentication/AuthStyle.css");
+    loadScript("./authentication/AuthScript.js");
 }
 
-function initializeScript(path) {
-    let currentScript = document.querySelector(".dynamicScript");
-    if (currentScript) {
-        document.head.removeChild(currentScript);
+export function loadMainPage() {
+    const app = document.querySelector(".app");
+    app.innerHTML = renderMainPageComponent();
+    loadCss("./MainPage/MainpageStyle.css");
+    loadScript("./MainPage/MainpageScript.js");
+}
+
+function loadCss(path) {
+    const existingStyle = document.querySelector(".dynamicstyles");
+    if (existingStyle) {
+        document.head.removeChild(existingStyle);
     }
 
-    let script = document.createElement("script");
-    script.setAttribute("src", `${path}`);
-    script.setAttribute("type", "module"); // Changed to module to support imports
+    const link = document.createElement("link");
+    link.setAttribute("rel", "stylesheet");
+    link.setAttribute("type", "text/css");
+    link.setAttribute("href", path);
+    link.setAttribute("class", "dynamicstyles");
+    document.head.appendChild(link);
+}
+
+function loadScript(path) {
+    const existingScript = document.querySelector(".dynamicScript");
+    if (existingScript) {
+        document.head.removeChild(existingScript);
+    }
+    const script = document.createElement("script");
+    script.setAttribute("src", path);
+    script.setAttribute("type", "module");
     script.setAttribute("class", "dynamicScript");
     script.defer = true;
     document.head.appendChild(script);
 }
-
