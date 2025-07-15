@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { initDb, InitiliazeDbTables, UpdateUserOnlineStatus } from "./database.js";
+import { initDb, InitiliazeDbTables, UpdateUserOnlineStatus, addMessage, getMessageById, getUserById } from "./database.js";
 import servefile from "./serveIndex.js";
 import { CallEndpoint } from "./EndPoints.js";
 import dotenv from "dotenv";
@@ -76,6 +76,90 @@ wss.on('connection', (ws) => {
                         }
                     }
                 });
+                break;
+
+            case 'chat':
+                // Handle real-time message sending
+                if (data.receiverId && data.content && userId) {
+                    try {
+                        // Add message to database
+                        const result = addMessage(db, userId, data.receiverId, data.content.trim(), data.messageType || 'text');
+                        const newMessage = getMessageById(db, result.lastInsertRowid);
+                        const sender = getUserById(db, userId);
+                        const receiver = getUserById(db, data.receiverId);
+
+                        // Prepare message for broadcasting
+                        const messageData = {
+                            type: 'chat',
+                            id: newMessage.id,
+                            senderId: newMessage.sender_id,
+                            receiverId: newMessage.receiver_id,
+                            senderName: sender.username,
+                            receiverName: receiver.username,
+                            content: newMessage.message,
+                            messageType: newMessage.message_type,
+                            timestamp: newMessage.created_at,
+                            isRead: newMessage.is_read
+                        };
+
+                        // Send to receiver if they're online
+                        if (connections[data.receiverId] && connections[data.receiverId].online) {
+                            const receiverSocket = connections[data.receiverId].socket;
+                            if (receiverSocket && receiverSocket.readyState === 1) {
+                                receiverSocket.send(JSON.stringify(messageData));
+                            }
+                        }
+
+                        // Send confirmation back to sender
+                        ws.send(JSON.stringify({
+                            type: 'message_sent',
+                            success: true,
+                            message: messageData
+                        }));
+
+                    } catch (error) {
+                        console.error('Error handling chat message:', error);
+                        ws.send(JSON.stringify({
+                            type: 'message_sent',
+                            success: false,
+                            error: 'Failed to send message'
+                        }));
+                    }
+                }
+                break;
+
+            case 'typing':
+                // Handle typing indicator
+                if (data.receiverId && userId) {
+                    // Send typing indicator to receiver if they're online
+                    if (connections[data.receiverId] && connections[data.receiverId].online) {
+                        const receiverSocket = connections[data.receiverId].socket;
+                        if (receiverSocket && receiverSocket.readyState === 1) {
+                            receiverSocket.send(JSON.stringify({
+                                type: 'typing',
+                                senderId: userId,
+                                senderName: data.senderName || 'User'
+                            }));
+                        }
+                    }
+                }
+                break;
+
+            case 'typing_stopped':
+                // Handle typing stopped
+                if (data.receiverId && userId) {
+                    // Send typing stopped to receiver if they're online
+                    if (connections[data.receiverId] && connections[data.receiverId].online) {
+                        const receiverSocket = connections[data.receiverId].socket;
+                        if (receiverSocket && receiverSocket.readyState === 1) {
+                            receiverSocket.send(JSON.stringify({
+                                type: 'typing_stopped',
+                                senderId: userId,
+                                senderName: data.senderName || 'User'
+                            }));
+                        }
+                    }
+                }
                 break;
 
             case 'testConnection':

@@ -218,8 +218,6 @@ export function CallEndpoint(app, db) {
             // Get the created message
             const newMessage = getMessageById(db, result.lastInsertRowid);
 
-            console.log('Message sent:', { id: result.lastInsertRowid, from: senderId, to: receiverId });
-
             res.status(201).json({
                 success: true,
                 data: {
