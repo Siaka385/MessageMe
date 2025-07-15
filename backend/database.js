@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { time } from "console";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -90,11 +91,12 @@ export function getAllUsers(db, currentUserId) {
 
 // Message-related functions
 export function addMessage(db, senderId, receiverId, message, messageType = 'text') {
+    const localTime = new Date().toISOString(); // still in UTC, but precise
     const statement = db.prepare(`
         INSERT INTO messages (sender_id, receiver_id, message, message_type, created_at)
-        VALUES (?, ?, ?, ?, datetime('now'))
+        VALUES (?, ?, ?, ?, ?)
     `);
-    return statement.run(senderId, receiverId, message, messageType);
+    return statement.run(senderId, receiverId, message, messageType, localTime);
 }
 
 export function getMessagesBetweenUsers(db, userId1, userId2, limit = 50, offset = 0) {
