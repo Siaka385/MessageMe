@@ -52,20 +52,15 @@ function handleWebSocketMessage(message) {
         case 'chat':
             // Handle chat message
             handleChatMessage(message);
-            // Update notification badge if not in the current chat
-            updateNotificationBadge();
             break;
         case 'message_sent':
             // Handle message sent confirmation
             handleMessageSentConfirmation(message);
             break;
         case 'status':
-            console.log("Status confirmation received for current user")
-            // This is just a confirmation that our own status was set
-            // We don't need to update UI since we don't show ourselves in the user list
+            //handle status confirmation
             break;
         case 'user_status_update':
-            console.log("Other user status update received:", message)
             // Handle status update for OTHER users
             handleStatusUpdate(message);
             break;
@@ -78,6 +73,7 @@ function handleWebSocketMessage(message) {
             handleTypingStatus(message, false);
             break;
         case 'testConnection':
+            //handle test connection
             console.log("connection test passed")
             break;
         default:
@@ -133,12 +129,11 @@ function handleChatMessage(message) {
 
         // Mark message as read if it's received
         if (message.senderId !== currentUser.id) {
-            // You can implement mark as read functionality here
             console.log('Message received from:', message.senderName);
         }
     }
 
-    // Update user list with last message (if applicable)
+    
     updateUserListLastMessage(message);
 }
 
@@ -166,20 +161,23 @@ function createMessageElement(message, currentUserId) {
 
 // Handle message sent confirmation
 function handleMessageSentConfirmation(response) {
+    // Check if there's a global chat app instance to handle the confirmation
+    if (window.chatApp && typeof window.chatApp.handleMessageSentConfirmation === 'function') {
+        window.chatApp.handleMessageSentConfirmation(response);
+        return;
+    }
+
+    // Fallback to basic handling
     if (response.success) {
         console.log('Message sent successfully:', response.message);
-        // The message will be displayed when it comes back through the chat handler
     } else {
         console.error('Failed to send message:', response.error);
-        // You could show an error message to the user here
         alert('Failed to send message: ' + response.error);
     }
 }
 
 // Update user list with last message
 function updateUserListLastMessage(message) {
-    // This function would update the user list sidebar with the latest message
-    // Implementation depends on your user list structure
     console.log('Updating user list with last message:', message.content);
 }
 
@@ -310,6 +308,13 @@ function logoutUser() {
 
 // Handle typing status
 function handleTypingStatus(message, isTyping) {
+    // Check if there's a global chat app instance to handle typing
+    if (window.chatApp && typeof window.chatApp.handleTypingStatus === 'function') {
+        window.chatApp.handleTypingStatus(message, isTyping);
+        return;
+    }
+
+    // Fallback to basic handling if no chat app instance
     const currentUser = JSON.parse(localStorage.getItem('userData'));
     const chatUserName = document.getElementById('chatUserName');
     const typingIndicator = document.getElementById('typingIndicator');

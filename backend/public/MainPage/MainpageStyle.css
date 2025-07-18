@@ -261,9 +261,12 @@ body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    overflow-x: hidden;
     background: #f8f9fa;
     background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="%23e0e0e0" opacity="0.1"/></svg>');
     background-size: 20px 20px;
+    scroll-behavior: smooth;
+    max-height: calc(100vh - 140px); /* Ensure it doesn't exceed viewport */
 }
 
 .message {
@@ -304,6 +307,11 @@ body {
     background: #667eea;
     color: white;
     border-bottom-right-radius: 4px;
+}
+
+.message.sent.pending .message-bubble {
+    background: #a0a8ea;
+    opacity: 0.8;
 }
 
 .message.received .message-bubble {

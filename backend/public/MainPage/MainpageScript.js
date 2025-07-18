@@ -46,6 +46,7 @@ class MessageMeChat {
         const userData = localStorage.getItem('userData');
         if (userData) {
             const user = JSON.parse(userData);
+            this.currentUser = user; // Set the current user property
             const avatarElement = document.getElementById('currentUserAvatar');
             const nameElement = document.getElementById('currentUserName');
 
@@ -221,10 +222,14 @@ class MessageMeChat {
             const messageElement = document.createElement('div');
             messageElement.className = `message ${message.sent ? 'sent' : 'received'}`;
 
+            // Add pending indicator for sent messages that haven't been confirmed
+            const pendingClass = message.pending ? ' pending' : '';
+            messageElement.className += pendingClass;
+
             messageElement.innerHTML = `
                 <div class="message-bubble">
-                    <div class="message-text">${message.text}</div>
-                    <div class="message-time">${message.time}</div>
+                    <div class="message-text">${this.escapeHtml(message.text)}</div>
+                    <div class="message-time">${message.time}${message.pending ? ' ⏳' : ''}</div>
                 </div>
             `;
 
@@ -234,33 +239,110 @@ class MessageMeChat {
         // Add typing indicator
         this.chatMessages.appendChild(this.typingIndicator);
 
-        // Scroll to bottom
-        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+        // Scroll to bottom smoothly
+        setTimeout(() => {
+            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+        }, 10);
+    }
+
+    // Escape HTML to prevent XSS
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     // Set up WebSocket message handlers
     setupWebSocketHandlers() {
-        // Store reference to this instance for use in WebSocket callbacks
+        
         window.chatApp = this;
 
-        // Override the global handleChatMessage function to integrate with our chat app
+      
         window.handleChatMessage = (message) => {
             this.handleIncomingMessage(message);
         };
+
+        
+        window.handleTypingStatus = (message, isTyping) => {
+            this.handleTypingStatus(message, isTyping);
+        };
+
+      
+        window.handleMessageSentConfirmation = (response) => {
+            this.handleMessageSentConfirmation(response);
+        };
+    }
+
+    // Handle message sent confirmation
+    handleMessageSentConfirmation(response) {
+        if (response.success && response.message) {
+            const message = response.message;
+            const receiverId = message.receiverId;
+
+            // Find and update the pending message
+            if (this.messages[receiverId]) {
+                const messageIndex = this.messages[receiverId].findIndex(msg =>
+                    msg.pending && msg.text === message.content
+                );
+
+                if (messageIndex !== -1) {
+                    // Update the message with server data
+                    this.messages[receiverId][messageIndex] = {
+                        id: message.id,
+                        text: message.content,
+                        sent: true,
+                        time: this.formatTime(message.timestamp),
+                        timestamp: message.timestamp,
+                        pending: false // Remove pending status
+                    };
+
+                    // Re-render if this is the current chat
+                    if (this.selectedUser && this.selectedUser.id === receiverId) {
+                        this.renderMessages();
+                    }
+                }
+            }
+        } else {
+            console.error('Failed to send message:', response.error);
+            // You could show an error message to the user here
+        }
+    }
+
+    // Handle typing status from WebSocket
+    handleTypingStatus(message, isTyping) {
+        if (!this.currentUser || !this.selectedUser) return;
+
+        // Only show typing indicator if it's from the currently selected user
+        const isFromSelectedUser = message.senderId === this.selectedUser.id;
+
+        if (isFromSelectedUser) {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                if (isTyping) {
+                    typingIndicator.style.display = 'block';
+                    // Scroll to bottom to show typing indicator
+                    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                } else {
+                    typingIndicator.style.display = 'none';
+                }
+            }
+        }
     }
 
     // Handle incoming WebSocket messages
     handleIncomingMessage(message) {
-        if (!this.selectedUser) return;
+        if (!this.currentUser) return;
 
-        // Only process messages for the current chat
-        const isFromCurrentChat = message.senderId === this.selectedUser.id;
-        const isToCurrentUser = message.receiverId === this.currentUser?.id;
+        const isToCurrentUser = message.receiverId === this.currentUser.id;
+        const isFromCurrentUser = message.senderId === this.currentUser.id;
 
-        if (isFromCurrentChat && isToCurrentUser) {
-            // Add received message to local cache
-            if (!this.messages[this.selectedUser.id]) {
-                this.messages[this.selectedUser.id] = [];
+        // Handle received messages (from other users to current user)
+        if (isToCurrentUser && !isFromCurrentUser) {
+            const senderId = message.senderId;
+
+            // Add message to local cache
+            if (!this.messages[senderId]) {
+                this.messages[senderId] = [];
             }
 
             const newMessage = {
@@ -271,18 +353,45 @@ class MessageMeChat {
                 timestamp: message.timestamp
             };
 
-            this.messages[this.selectedUser.id].push(newMessage);
+            this.messages[senderId].push(newMessage);
 
             // Update user's last message in the list
-            const userIndex = this.users.findIndex(u => u.id === this.selectedUser.id);
+            const userIndex = this.users.findIndex(u => u.id === senderId);
             if (userIndex !== -1) {
                 this.users[userIndex].lastMessage = message.content;
                 this.users[userIndex].lastMessageTime = 'now';
+
+                // Increment unread count if not currently viewing this chat
+                if (!this.selectedUser || this.selectedUser.id !== senderId) {
+                    this.users[userIndex].unreadCount = (this.users[userIndex].unreadCount || 0) + 1;
+                }
             }
 
-            // Re-render
-            this.renderMessages();
+            // Re-render messages if this is the currently selected chat
+            if (this.selectedUser && this.selectedUser.id === senderId) {
+                this.renderMessages();
+
+                // Hide typing indicator when message is received
+                const typingIndicator = document.getElementById('typingIndicator');
+                if (typingIndicator) {
+                    typingIndicator.style.display = 'none';
+                }
+            }
+
+            // Always re-render user list to update last message and unread count
             this.renderUsers();
+
+            // Play notification sound or show notification (optional)
+            this.showMessageNotification(message);
+        }
+    }
+
+    // Show message notification
+    showMessageNotification(message) {
+        // Only show notification if not currently viewing the chat
+        if (!this.selectedUser || this.selectedUser.id !== message.senderId) {
+            // You can add notification sound or browser notification here
+            console.log(`New message from ${message.senderName}: ${message.content}`);
         }
     }
 
