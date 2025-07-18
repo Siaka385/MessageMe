@@ -366,7 +366,7 @@ function sendStatusWhenReady(type,userId,receiverName="",content="") {
 
 // Send chat message via WebSocket
 function sendChatMessage(receiverId, content, messageType = 'text') {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    const currentUser = JSON.parse(localStorage.getItem('userData'));
     if (!currentUser) {
         console.error('No current user found');
         return false;
@@ -386,7 +386,7 @@ function sendChatMessage(receiverId, content, messageType = 'text') {
 
 // Send typing indicator
 function sendTypingIndicator(receiverId, isTyping = true) {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    const currentUser = JSON.parse(localStorage.getItem('userData'));
     if (!currentUser) {
         console.error('No current user found');
         return false;
